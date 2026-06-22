@@ -5,9 +5,11 @@ All SQL lives in Repository; these handlers only shape ORM rows into DTOs.
 from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi.responses import HTMLResponse
 
 from app.api.deps import repository_dep, require_auth, settings_dep
 from app.api.schemas import (
+    AuthorListItem,
     AuthorStatsOut,
     BackfillAccepted,
     BackfillRequest,
@@ -16,6 +18,7 @@ from app.api.schemas import (
     PRDetail,
     PRListItem,
     RepositoryOut,
+    RepoHealthSummary,
     ScoreSummary,
     SignalOut,
     SignalTrendOut,
@@ -175,3 +178,130 @@ def admin_backfill(
 def _require_repo(repository: Repository, repo_id: str) -> None:
     if repository.get_repository(repo_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Repository not found")
+
+
+@router.get("/dashboard/summary", response_model=list[RepoHealthSummary])
+def dashboard_summary(repository: Repository = Depends(repository_dep)) -> list[RepoHealthSummary]:
+    """Repo-level health table — answers 'how healthy are our PR practices?'"""
+    return [RepoHealthSummary(**row) for row in repository.dashboard_summary()]
+
+
+@router.get("/authors", response_model=list[AuthorListItem])
+def list_authors(repository: Repository = Depends(repository_dep)) -> list[AuthorListItem]:
+    """All authors ranked by avg risk score — answers 'which teams need attention?'"""
+    return [AuthorListItem(**row) for row in repository.list_authors()]
+
+
+@router.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+def html_dashboard(repository: Repository = Depends(repository_dep)) -> HTMLResponse:
+    """Serves the human-readable PR health dashboard."""
+    summary = repository.dashboard_summary()
+    authors = repository.list_authors()
+    return HTMLResponse(_build_html(summary, authors))
+
+
+# ---------------------------------------------------------------------------
+# HTML dashboard renderer
+# ---------------------------------------------------------------------------
+
+def _health_label(score: float | None) -> str:
+    if score is None:
+        return "no data"
+    if score >= 80:
+        return "HEALTHY"
+    if score >= 60:
+        return "GOOD"
+    if score >= 40:
+        return "FAIR"
+    return "POOR"
+
+
+def _badge(score: float | None) -> str:
+    label = _health_label(score)
+    color = {"POOR": "#e5484d", "FAIR": "#f5a524", "GOOD": "#30a46c",
+             "HEALTHY": "#30a46c", "no data": "#8b8b8b"}[label]
+    return f'<span class="badge" style="background:{color}">{label}</span>'
+
+
+def _bar(pct: float | None) -> str:
+    v = max(0, min(100, pct or 0))
+    return (f'<div class="bar"><div class="fill" style="width:{v:.0f}%;'
+            f'background:{"#e5484d" if v < 60 else "#30a46c"}"></div>'
+            f'<span>{v:.0f}</span></div>')
+
+
+def _build_html(summary: list[dict], authors: list[dict]) -> str:
+    repo_rows = "".join(
+        f"<tr><td>{r['name']}</td><td>{r['provider']}</td>"
+        f"<td>{r['merged_prs']}/{r['total_prs']}</td>"
+        f"<td>{_bar(r['avg_health_score'])}</td>"
+        f"<td>{r['avg_risk_score'] or 'n/a'}</td>"
+        f"<td>{r['blocked_merges']}</td>"
+        f"<td>{_badge(r['avg_health_score'])}</td></tr>"
+        for r in summary
+    ) or "<tr><td colspan='7'>No data yet — run a backfill or POST /api/v1/analyze</td></tr>"
+
+    attention = "".join(
+        f"<li><b>{r['name']}</b> — avg health {r['avg_health_score']:.1f}, "
+        f"{r['blocked_merges']} blocked merge(s)</li>"
+        for r in summary if r["needs_attention"]
+    ) or "<li>No repositories below the attention threshold.</li>"
+
+    author_rows = "".join(
+        f"<tr><td>{a['author']}</td><td>{a['pr_count']}</td>"
+        f"<td>{a['avg_health_score'] or 'n/a'}</td>"
+        f"<td>{a['avg_risk_score'] or 'n/a'}</td></tr>"
+        for a in authors[:15]
+    ) or "<tr><td colspan='4'>No author data yet.</td></tr>"
+
+    return f"""<!doctype html><html><head><meta charset="utf-8">
+<title>PR Health Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+ body{{font-family:system-ui,Arial,sans-serif;margin:0;background:#0e1116;color:#e6e6e6}}
+ header{{background:#161b22;padding:20px 32px;border-bottom:1px solid #30363d}}
+ h1{{margin:0;font-size:22px}} h2{{font-size:15px;color:#9ecbff;margin-top:0}}
+ .sub{{color:#8b949e;font-size:13px}} main{{padding:24px 32px;max-width:1100px}}
+ section{{background:#161b22;border:1px solid #30363d;border-radius:10px;
+          padding:18px 22px;margin-bottom:20px}}
+ table{{width:100%;border-collapse:collapse}}
+ th,td{{text-align:left;padding:8px 10px;border-bottom:1px solid #21262d;font-size:14px}}
+ th{{color:#8b949e;font-weight:600}}
+ .badge{{color:#fff;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600}}
+ .bar{{position:relative;background:#21262d;border-radius:6px;height:18px;width:100px;display:inline-block}}
+ .bar .fill{{height:100%;border-radius:6px}}
+ .bar span{{position:absolute;left:8px;top:0;font-size:11px;line-height:18px}}
+ ul{{margin:6px 0}} li{{font-size:14px;margin:3px 0}}
+ a{{color:#58a6ff;text-decoration:none}}
+</style></head><body>
+<header>
+  <h1>PR Health Dashboard</h1>
+  <div class="sub">Powered by Harness SCM data &mdash;
+    <a href="/docs">API docs</a> &middot;
+    <a href="/api/v1/dashboard/summary">JSON summary</a>
+  </div>
+</header>
+<main>
+  <section>
+    <h2>Repository health (worst first)</h2>
+    <table>
+      <tr><th>Repo</th><th>Provider</th><th>Merged/Total PRs</th>
+          <th>Avg health</th><th>Avg risk</th><th>Blocked merges</th><th>Status</th></tr>
+      {repo_rows}
+    </table>
+  </section>
+  <section>
+    <h2>Repositories needing attention</h2>
+    <ul>{attention}</ul>
+  </section>
+  <section>
+    <h2>Authors ranked by risk (worst first)</h2>
+    <table>
+      <tr><th>Author</th><th>PRs</th><th>Avg health</th><th>Avg risk</th></tr>
+      {author_rows}
+    </table>
+    <p style="color:#8b949e;font-size:12px;margin-top:8px">
+      Full author stats: <code>GET /api/v1/authors/&lt;name&gt;/pr_stats</code>
+    </p>
+  </section>
+</main></body></html>"""

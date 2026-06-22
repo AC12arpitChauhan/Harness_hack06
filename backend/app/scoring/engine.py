@@ -38,17 +38,19 @@ DEFAULT_SEVERITY_PENALTIES: dict[Severity, float] = {
 }
 
 DEFAULT_HEALTH_WEIGHTS: dict[str, float] = {
-    "merge_speed": 0.20,
-    "change_size": 0.25,
-    "review_quality": 0.35,
+    "merge_speed": 0.15,
+    "change_size": 0.20,
+    "review_quality": 0.30,
     "ci_status": 0.20,
+    "ticket_linkage": 0.15,
 }
 
 DEFAULT_RISK_WEIGHTS: dict[str, float] = {
-    "change_size": 0.30,
+    "change_size": 0.25,
     "ci_status": 0.30,
     "merge_speed": 0.20,
-    "review_quality": 0.20,
+    "review_quality": 0.15,
+    "ticket_linkage": 0.10,
 }
 
 DEFAULT_BLOCKED_CAP: float = 15.0  # merge_readiness ceiling when a hard blocker fires

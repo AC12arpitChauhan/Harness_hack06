@@ -1,10 +1,9 @@
-# PostgreSQL for running the app against the production-target database.
-# The app still boots with zero setup on SQLite (the default) — this is only
-# needed when you want to exercise the Postgres path.
+# Full stack: app + PostgreSQL.
 #
-#   docker compose up -d
-#   export DATABASE_URL=postgresql+psycopg2://prhealth:prhealth@localhost:5432/prhealth
-#   alembic upgrade head && uvicorn app.main:app --reload
+#   docker compose up --build
+#   open http://localhost:8000/dashboard
+#
+# Env overrides: copy .env.example → .env and set GITHUB_TOKEN / HARNESS_TOKEN etc.
 services:
   postgres:
     image: postgres:16
@@ -22,6 +21,32 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  app:
+    build: .
+    container_name: prhealth-app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://prhealth:prhealth@postgres:5432/prhealth
+      FASTAPI_AUTH_TOKEN: ${FASTAPI_AUTH_TOKEN:-dev-token}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      HARNESS_TOKEN: ${HARNESS_TOKEN:-}
+      HARNESS_API_URL: ${HARNESS_API_URL:-https://app.harness.io}
+      HARNESS_ACCOUNT_ID: ${HARNESS_ACCOUNT_ID:-}
+      HARNESS_ORG_ID: ${HARNESS_ORG_ID:-}
+      HARNESS_PROJECT_ID: ${HARNESS_PROJECT_ID:-}
+      LLM_ENABLED: ${LLM_ENABLED:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      WRITEBACK_ENABLED: ${WRITEBACK_ENABLED:-false}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   prhealth_pg:

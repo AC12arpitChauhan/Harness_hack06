@@ -281,3 +281,60 @@ class Repository:
             "avg_health_score": round(float(avg_health), 2) if avg_health is not None else None,
             "avg_risk_score": round(float(avg_risk), 2) if avg_risk is not None else None,
         }
+
+    def list_authors(self) -> list[dict]:
+        """Aggregate metrics per author across all repos, sorted by avg risk (worst first)."""
+        stmt = (
+            select(
+                orm.PullRequest.author,
+                func.count(orm.PullRequest.id).label("pr_count"),
+                func.avg(orm.AnalysisScore.health_score).label("avg_health"),
+                func.avg(orm.AnalysisScore.risk_score).label("avg_risk"),
+            )
+            .join(orm.AnalysisScore, orm.AnalysisScore.pr_id == orm.PullRequest.id)
+            .group_by(orm.PullRequest.author)
+            .order_by(func.avg(orm.AnalysisScore.risk_score).desc())
+        )
+        rows = []
+        for author, pr_count, avg_health, avg_risk in self.session.execute(stmt):
+            rows.append({
+                "author": author,
+                "pr_count": int(pr_count),
+                "avg_health_score": round(float(avg_health), 2) if avg_health is not None else None,
+                "avg_risk_score": round(float(avg_risk), 2) if avg_risk is not None else None,
+            })
+        return rows
+
+    def dashboard_summary(self) -> list[dict]:
+        """Per-repo health summary for the dashboard view, sorted by avg health asc (worst first)."""
+        repos = self.list_repositories()
+        out = []
+        for repo in repos:
+            pairs = self.list_prs_with_latest_score(repo.id, None, "created_at", 1000)
+            merged = [(pr, s) for pr, s in pairs if pr.state == "merged"]
+            all_scores = [s for _, s in pairs if s is not None]
+            merged_scores = [s for _, s in merged if s is not None]
+
+            avg_health = (
+                round(sum(s.health_score for s in all_scores) / len(all_scores), 2)
+                if all_scores else None
+            )
+            avg_risk = (
+                round(sum(s.risk_score for s in merged_scores) / len(merged_scores), 2)
+                if merged_scores else None
+            )
+            blocked = sum(1 for s in merged_scores if s.blocking_reason)
+            out.append({
+                "repo_id": repo.id,
+                "name": repo.name,
+                "provider": repo.provider,
+                "url": repo.url,
+                "total_prs": len(pairs),
+                "merged_prs": len(merged),
+                "avg_health_score": avg_health,
+                "avg_risk_score": avg_risk,
+                "blocked_merges": blocked,
+                "needs_attention": avg_health is not None and avg_health < 60,
+            })
+        out.sort(key=lambda r: (r["avg_health_score"] is None, r["avg_health_score"] or 0))
+        return out

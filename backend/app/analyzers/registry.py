@@ -1,9 +1,6 @@
 """Enabled-analyzer assembly. PURE: takes plain threshold args (no config import),
 so the analyzers package stays free of external deps. The API layer passes
 settings-derived values in.
-
-The four real analyzers are wired here. ticket_linkage is intentionally NOT
-included — it is a FUTURE stub and is not scored this round.
 """
 from __future__ import annotations
 
@@ -26,6 +23,7 @@ from app.analyzers.review_quality import (
     DEFAULT_TRIVIAL_LINES,
     ReviewQualityAnalyzer,
 )
+from app.analyzers.ticket_linkage import TicketLinkageAnalyzer
 
 
 def enabled_analyzers(
@@ -46,4 +44,5 @@ def enabled_analyzers(
         ),
         ReviewQualityAnalyzer(review_trivial_lines, review_thin_reviewers),
         CiStatusAnalyzer(),
+        TicketLinkageAnalyzer(),
     ]
