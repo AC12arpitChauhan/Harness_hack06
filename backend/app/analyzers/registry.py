@@ -1,0 +1,49 @@
+"""Enabled-analyzer assembly. PURE: takes plain threshold args (no config import),
+so the analyzers package stays free of external deps. The API layer passes
+settings-derived values in.
+
+The four real analyzers are wired here. ticket_linkage is intentionally NOT
+included — it is a FUTURE stub and is not scored this round.
+"""
+from __future__ import annotations
+
+from app.analyzers.base import Analyzer
+from app.analyzers.change_size import (
+    DEFAULT_CRITICAL_LINES,
+    DEFAULT_HIGH_FILES,
+    DEFAULT_HIGH_LINES,
+    DEFAULT_MEDIUM_LINES,
+    ChangeSizeAnalyzer,
+)
+from app.analyzers.ci_status import CiStatusAnalyzer
+from app.analyzers.merge_speed import (
+    DEFAULT_FAST_MERGE_MINUTES,
+    DEFAULT_SLOW_MERGE_MINUTES,
+    MergeSpeedAnalyzer,
+)
+from app.analyzers.review_quality import (
+    DEFAULT_THIN_REVIEW_REVIEWERS,
+    DEFAULT_TRIVIAL_LINES,
+    ReviewQualityAnalyzer,
+)
+
+
+def enabled_analyzers(
+    *,
+    merge_fast_minutes: int = DEFAULT_FAST_MERGE_MINUTES,
+    merge_slow_minutes: int = DEFAULT_SLOW_MERGE_MINUTES,
+    change_medium_lines: int = DEFAULT_MEDIUM_LINES,
+    change_high_lines: int = DEFAULT_HIGH_LINES,
+    change_critical_lines: int = DEFAULT_CRITICAL_LINES,
+    change_high_files: int = DEFAULT_HIGH_FILES,
+    review_trivial_lines: int = DEFAULT_TRIVIAL_LINES,
+    review_thin_reviewers: int = DEFAULT_THIN_REVIEW_REVIEWERS,
+) -> list[Analyzer]:
+    return [
+        MergeSpeedAnalyzer(merge_fast_minutes, merge_slow_minutes),
+        ChangeSizeAnalyzer(
+            change_medium_lines, change_high_lines, change_critical_lines, change_high_files
+        ),
+        ReviewQualityAnalyzer(review_trivial_lines, review_thin_reviewers),
+        CiStatusAnalyzer(),
+    ]

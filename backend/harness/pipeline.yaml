@@ -1,0 +1,123 @@
+pipeline:
+  name: demo_for_hack06
+  identifier: demo_for_hack06
+  tags: {}
+  projectIdentifier: CIBootcamp2026
+  orgIdentifier: default
+  properties:
+    ci:
+      codebase:
+        connectorRef: arpit_github_connector
+        repoName: CI_orchestrator
+        build: <+input>
+        sparseCheckout: []
+  # Public base URL of your locally-running PR Health FastAPI service.
+  # ngrok free URLs change on restart — update this value (or override at run time)
+  # whenever you restart the tunnel. Used by the "Analyze_PR_Health" step below.
+  variables:
+    - name: fastapi_url
+      type: String
+      description: Public base URL of the PR Health FastAPI service (e.g. your ngrok https URL)
+      required: true
+      value: https://REPLACE-WITH-YOUR-TUNNEL.ngrok-free.app
+    - name: fail_on_block
+      type: String
+      description: "Set to true to FAIL the build when the PR is not merge-ready"
+      required: false
+      value: "false"
+  stages:
+    - stage:
+        name: build_and_analyze
+        identifier: build
+        description: "Build/test the PR, then score its health via the PR Health service"
+        type: CI
+        spec:
+          cloneCodebase: true
+          caching:
+            enabled: true
+            override: false
+            paths: []
+          buildIntelligence:
+            enabled: true
+          platform:
+            os: Linux
+            arch: Arm64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              # 1) Show the PR context Harness extracted (handy in the demo).
+              - step:
+                  type: Run
+                  name: PR_Context
+                  identifier: PR_Context
+                  spec:
+                    shell: Sh
+                    command: |-
+                      echo "Repo URL:      <+codebase.repoUrl>"
+                      echo "PR Number:     <+codebase.prNumber>"
+                      echo "PR Title:      <+codebase.prTitle>"
+                      echo "Source Branch: <+codebase.sourceBranch>"
+                      echo "Target Branch: <+codebase.targetBranch>"
+                      echo "Commit SHA:    <+codebase.commitSha>"
+
+              # 2) Your real build/test goes here. These results become GitHub
+              #    check-runs, which the PR Health service reads for ci_status.
+              - step:
+                  type: Run
+                  name: Build_and_Test
+                  identifier: Build_and_Test
+                  spec:
+                    shell: Sh
+                    command: |-
+                      echo "Running build + tests..."
+                      # e.g. make build && make test
+                      echo "Build + tests complete."
+
+              # 3) Call the PR Health service. It fetches the PR from GitHub,
+              #    scores it deterministically, persists it, and (if WRITEBACK_ENABLED)
+              #    posts a PR comment + commit status. The pipeline just triggers it.
+              - step:
+                  type: Run
+                  name: Analyze_PR_Health
+                  identifier: Analyze_PR_Health
+                  spec:
+                    shell: Sh
+                    command: |-
+                      set -e
+                      FASTAPI_URL="<+pipeline.variables.fastapi_url>"
+                      API_TOKEN='<+secrets.getValue("pr_health_api_token")>'
+                      PR_NUMBER="<+codebase.prNumber>"
+                      COMMIT_SHA="<+codebase.commitSha>"
+                      REPO_URL="<+codebase.repoUrl>"
+
+                      if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+                        echo "Not a PR build (no PR number) — skipping PR Health analysis."
+                        exit 0
+                      fi
+
+                      # Derive owner/name from the repo URL (strip scheme/host and .git).
+                      REPO_SLUG=$(printf '%s' "$REPO_URL" | sed -E 's#^[a-z]+://[^/]+/##; s#\.git$##')
+                      echo "POST $FASTAPI_URL/api/v1/analyze  (repo=$REPO_SLUG pr=$PR_NUMBER)"
+
+                      RESPONSE=$(curl -sS -X POST "$FASTAPI_URL/api/v1/analyze" \
+                        -H "Authorization: Bearer $API_TOKEN" \
+                        -H "Content-Type: application/json" \
+                        -H "ngrok-skip-browser-warning: true" \
+                        -d "{\"provider\":\"github\",\"repo\":\"$REPO_SLUG\",\"pr_number\":$PR_NUMBER,\"commit_sha\":\"$COMMIT_SHA\",\"action\":\"ci\"}")
+
+                      echo "----- /analyze response -----"
+                      printf '%s\n' "$RESPONSE"
+                      echo "-----------------------------"
+
+                      # Parse a one-line summary (python3 is present on the Cloud image).
+                      HEALTH=$(printf '%s' "$RESPONSE" | python3 -c "import sys,json;print(json.load(sys.stdin).get('scores',{}).get('health_score'))" 2>/dev/null || echo "?")
+                      READY=$(printf '%s' "$RESPONSE" | python3 -c "import sys,json;print(str(json.load(sys.stdin).get('ready')).lower())" 2>/dev/null || echo "unknown")
+                      echo "PR Health: ${HEALTH}/100  ready=${READY}"
+
+                      # Optional gate: fail the build when the PR isn't merge-ready.
+                      if [ "<+pipeline.variables.fail_on_block>" = "true" ] && [ "$READY" = "false" ]; then
+                        echo "PR is not merge-ready — failing the build."
+                        exit 1
+                      fi

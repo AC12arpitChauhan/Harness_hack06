@@ -1,0 +1,35 @@
+trigger:
+  name: pr_health_on_pr
+  identifier: pr_health_on_pr
+  enabled: true
+  orgIdentifier: default
+  projectIdentifier: CIBootcamp2026
+  pipelineIdentifier: demo_for_hack06
+  source:
+    type: Webhook
+    spec:
+      type: Github
+      spec:
+        type: PullRequest
+        spec:
+          connectorRef: arpit_github_connector
+          autoAbortPreviousExecutions: false
+          payloadConditions: []
+          headerConditions: []
+          repoName: CI_orchestrator
+          actions:
+            - Open
+            - Reopen
+            - Synchronize       # fires on every new commit pushed to the PR
+  # Supplies the runtime input `build` as a PR build keyed to the trigger's PR.
+  # fastapi_url is a fixed pipeline variable, so the trigger doesn't set it.
+  inputYaml: |
+    pipeline:
+      identifier: demo_for_hack06
+      properties:
+        ci:
+          codebase:
+            build:
+              type: PR
+              spec:
+                number: <+trigger.prNumber>

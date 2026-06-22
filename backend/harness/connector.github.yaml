@@ -1,0 +1,26 @@
+# REFERENCE ONLY — you already have `arpit_github_connector` working.
+# Shown so the pipeline is reproducible from scratch. Match the url / account vs
+# repo level / username to your existing connector if they differ.
+# apiAccess (token) is required for the webhook PR trigger to work.
+connector:
+  name: arpit_github_connector
+  identifier: arpit_github_connector
+  type: Github
+  orgIdentifier: default
+  projectIdentifier: CIBootcamp2026
+  spec:
+    executeOnDelegate: false
+    type: Account
+    url: https://github.com/AC12arpitChauhan
+    validationRepo: CI_orchestrator
+    authentication:
+      type: Http
+      spec:
+        type: UsernameToken
+        spec:
+          username: AC12arpitChauhan
+          tokenRef: arpit_github_pat
+    apiAccess:
+      type: Token
+      spec:
+        tokenRef: arpit_github_pat

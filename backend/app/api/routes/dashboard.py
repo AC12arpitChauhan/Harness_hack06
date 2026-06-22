@@ -1,0 +1,177 @@
+"""Dashboard read endpoints (open locally) + admin backfill (auth required).
+
+All SQL lives in Repository; these handlers only shape ORM rows into DTOs.
+"""
+from __future__ import annotations
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+
+from app.api.deps import repository_dep, require_auth, settings_dep
+from app.api.schemas import (
+    AuthorStatsOut,
+    BackfillAccepted,
+    BackfillRequest,
+    MergeReadinessOut,
+    NarrativeOut,
+    PRDetail,
+    PRListItem,
+    RepositoryOut,
+    ScoreSummary,
+    SignalOut,
+    SignalTrendOut,
+)
+from app.config import Settings
+from app.persistence import orm
+from app.persistence.repository import Repository
+from app.services.backfill_service import backfill_repo
+
+router = APIRouter(prefix="/api/v1", tags=["dashboard"])
+
+
+def _score_summary(row: orm.AnalysisScore | None) -> ScoreSummary | None:
+    if row is None:
+        return None
+    return ScoreSummary(
+        health_score=row.health_score,
+        risk_score=row.risk_score,
+        review_quality_score=row.review_quality_score,
+        merge_readiness=row.merge_readiness,
+        blocking_reason=row.blocking_reason,
+    )
+
+
+def _signal_out(row: orm.AnalysisSignal) -> SignalOut:
+    return SignalOut(
+        signal_name=row.signal_name,
+        severity=row.severity,
+        value=row.value,
+        threshold=row.threshold,
+        exceeds_threshold=row.exceeds_threshold,
+        explanation=row.explanation,
+    )
+
+
+@router.get("/repositories", response_model=list[RepositoryOut])
+def list_repositories(repository: Repository = Depends(repository_dep)) -> list[RepositoryOut]:
+    out: list[RepositoryOut] = []
+    for repo in repository.list_repositories():
+        pairs = repository.list_prs_with_latest_score(repo.id, None, "created_at", 1000)
+        healths = [s.health_score for _, s in pairs if s is not None]
+        avg = round(sum(healths) / len(healths), 2) if healths else None
+        out.append(
+            RepositoryOut(
+                id=repo.id, provider=repo.provider, name=repo.name, url=repo.url,
+                pr_count=len(pairs), avg_health_score=avg,
+            )
+        )
+    return out
+
+
+@router.get("/repositories/{repo_id}/prs", response_model=list[PRListItem])
+def list_prs(
+    repo_id: str,
+    state: str | None = Query(default=None),
+    order_by: str = Query(default="created_at"),
+    limit: int = Query(default=50, ge=1, le=500),
+    repository: Repository = Depends(repository_dep),
+) -> list[PRListItem]:
+    _require_repo(repository, repo_id)
+    pairs = repository.list_prs_with_latest_score(repo_id, state, order_by, limit)
+    return [
+        PRListItem(
+            pr_id=pr.id, provider_pr_id=pr.provider_pr_id, title=pr.title, author=pr.author,
+            state=pr.state, merged_at=pr.merged_at, score=_score_summary(score),
+        )
+        for pr, score in pairs
+    ]
+
+
+@router.get("/repositories/{repo_id}/prs/{pr_id}", response_model=PRDetail)
+def pr_detail(
+    repo_id: str, pr_id: str, repository: Repository = Depends(repository_dep)
+) -> PRDetail:
+    _require_repo(repository, repo_id)
+    pr = repository.get_pull_request(pr_id)
+    if pr is None or pr.repo_id != repo_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "PR not found")
+    latest_run = repository.latest_run_for_pr(pr_id)
+    signals = repository.signals_for_run(latest_run.id) if latest_run else []
+    narrative = repository.narrative_for_pr(pr_id)
+    return PRDetail(
+        pr_id=pr.id, provider=pr.provider, provider_pr_id=pr.provider_pr_id, title=pr.title,
+        author=pr.author, state=pr.state, source_branch=pr.source_branch,
+        target_branch=pr.target_branch, jira_issue_id=pr.jira_issue_id,
+        score=_score_summary(repository.latest_score_for_pr(pr_id)),
+        signals=[_signal_out(s) for s in signals],
+        narrative=(
+            NarrativeOut(
+                ai_summary=narrative.ai_summary, ai_recommendation=narrative.ai_recommendation,
+                ai_model=narrative.ai_model, posted_at=narrative.posted_at,
+            )
+            if narrative
+            else None
+        ),
+    )
+
+
+@router.get("/repositories/{repo_id}/signal_trends", response_model=SignalTrendOut)
+def signal_trends(
+    repo_id: str,
+    signal_name: str = Query(...),
+    period_days: int = Query(default=30, ge=1, le=365),
+    repository: Repository = Depends(repository_dep),
+) -> SignalTrendOut:
+    _require_repo(repository, repo_id)
+    points = repository.signal_breach_trend(repo_id, signal_name, period_days)
+    return SignalTrendOut(
+        repo_id=repo_id, signal_name=signal_name, period_days=period_days, points=points
+    )
+
+
+@router.get("/authors/{author}/pr_stats", response_model=AuthorStatsOut)
+def author_stats(author: str, repository: Repository = Depends(repository_dep)) -> AuthorStatsOut:
+    return AuthorStatsOut(**repository.author_pr_stats(author))
+
+
+@router.get("/repositories/{repo_id}/prs/{pr_id}/merge_readiness", response_model=MergeReadinessOut)
+def merge_readiness(
+    repo_id: str,
+    pr_id: str,
+    repository: Repository = Depends(repository_dep),
+    settings: Settings = Depends(settings_dep),
+) -> MergeReadinessOut:
+    _require_repo(repository, repo_id)
+    pr = repository.get_pull_request(pr_id)
+    if pr is None or pr.repo_id != repo_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "PR not found")
+    score = repository.latest_score_for_pr(pr_id)
+    if score is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No analysis for this PR yet")
+    blocking = score.blocking_reason.split("; ") if score.blocking_reason else []
+    ready = score.blocking_reason is None and score.merge_readiness >= settings.ready_threshold
+    return MergeReadinessOut(
+        ready=ready,
+        health_score=score.health_score,
+        merge_readiness=score.merge_readiness,
+        blocking_signals=blocking,
+        override_available=score.blocking_reason is not None,
+    )
+
+
+@router.post(
+    "/admin/backfill", response_model=BackfillAccepted, dependencies=[Depends(require_auth)]
+)
+def admin_backfill(
+    body: BackfillRequest,
+    background_tasks: BackgroundTasks,
+    settings: Settings = Depends(settings_dep),
+) -> BackfillAccepted:
+    background_tasks.add_task(backfill_repo, body.provider, body.repo, body.since_days, settings)
+    return BackfillAccepted(
+        status="accepted", provider=body.provider, repo=body.repo, since_days=body.since_days
+    )
+
+
+def _require_repo(repository: Repository, repo_id: str) -> None:
+    if repository.get_repository(repo_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Repository not found")

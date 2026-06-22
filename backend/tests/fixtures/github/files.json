@@ -1,0 +1,5 @@
+[
+  { "filename": "src/auth/login.py", "additions": 220, "deletions": 40, "changes": 260, "status": "modified" },
+  { "filename": "src/auth/session.py", "additions": 180, "deletions": 50, "changes": 230, "status": "modified" },
+  { "filename": "src/auth/tokens.py", "additions": 200, "deletions": 30, "changes": 230, "status": "added" }
+]

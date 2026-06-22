@@ -1,0 +1,19 @@
+{
+  "total_count": 2,
+  "check_runs": [
+    {
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success",
+      "completed_at": "2026-02-10T09:04:00Z",
+      "html_url": "https://example.com/checks/build"
+    },
+    {
+      "name": "test",
+      "status": "completed",
+      "conclusion": "failure",
+      "completed_at": "2026-02-10T09:06:00Z",
+      "html_url": "https://example.com/checks/test"
+    }
+  ]
+}

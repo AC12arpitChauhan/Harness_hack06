@@ -1,0 +1,10 @@
+[
+  {
+    "sha": "deadbeefcafe0001",
+    "commit": {
+      "message": "Refactor auth module (PROJ-42)",
+      "author": { "name": "Dev One", "date": "2026-02-10T09:01:00Z" }
+    },
+    "author": { "login": "devone" }
+  }
+]
