@@ -23,7 +23,10 @@ export class ApiError extends Error {
 }
 
 async function get<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
-  const url = new URL(`${PREFIX}${path}`);
+  // Base arg lets a relative PREFIX (dev proxy, API_BASE="") resolve against the
+  // current origin; for an absolute PREFIX the base is ignored. Without it,
+  // `new URL("/api/v1/...")` throws "Invalid URL".
+  const url = new URL(`${PREFIX}${path}`, window.location.origin);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
