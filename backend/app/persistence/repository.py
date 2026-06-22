@@ -286,3 +286,63 @@ class Repository:
             "avg_health_score": round(float(avg_health), 2) if avg_health is not None else None,
             "avg_risk_score": round(float(avg_risk), 2) if avg_risk is not None else None,
         }
+
+    def repo_overview(self, repo_id: str, ready_threshold: float) -> dict:
+        """Aggregate counts/averages/severity-distribution/top-signals for the repo,
+        over the latest score + latest run per PR. Powers the dashboard hero widgets."""
+        pairs = self.list_prs_with_latest_score(repo_id, None, "created_at", 100000)
+        counts = {"total": len(pairs), "open": 0, "merged": 0, "closed": 0,
+                  "ready": 0, "blocked": 0, "analyzed": 0}
+        sums = {"health": 0.0, "risk": 0.0, "review_quality": 0.0, "merge_readiness": 0.0}
+        n_scored = 0
+        severity = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+        breaches: dict[str, int] = {}
+        for pr, score in pairs:
+            if pr.state in counts:
+                counts[pr.state] += 1
+            if score is not None:
+                n_scored += 1
+                counts["analyzed"] += 1
+                sums["health"] += score.health_score
+                sums["risk"] += score.risk_score
+                sums["review_quality"] += score.review_quality_score
+                sums["merge_readiness"] += score.merge_readiness
+                if score.blocking_reason:
+                    counts["blocked"] += 1
+                elif score.merge_readiness >= ready_threshold:
+                    counts["ready"] += 1
+            run = self.latest_run_for_pr(pr.id)
+            if run:
+                for sig in self.signals_for_run(run.id):
+                    if sig.severity in severity:
+                        severity[sig.severity] += 1
+                    if sig.exceeds_threshold:
+                        breaches[sig.signal_name] = breaches.get(sig.signal_name, 0) + 1
+        averages = {k: (round(v / n_scored, 2) if n_scored else None) for k, v in sums.items()}
+        top = sorted(breaches.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
+        return {
+            "counts": counts,
+            "averages": averages,
+            "severity_distribution": severity,
+            "top_signals": [{"signal_name": k, "count": c} for k, c in top],
+        }
+
+    def score_history(self, repo_id: str, period_days: int) -> list[dict]:
+        """Daily avg health + run count across the repo's analyses (Python bucketing,
+        portable across SQLite and Postgres)."""
+        since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=period_days)
+        rows = self.session.execute(
+            select(orm.AnalysisScore.created_at, orm.AnalysisScore.health_score)
+            .join(orm.PullRequest, orm.PullRequest.id == orm.AnalysisScore.pr_id)
+            .where(orm.PullRequest.repo_id == repo_id, orm.AnalysisScore.created_at >= since)
+        ).all()
+        buckets: dict[str, list] = {}
+        for created_at, health in rows:
+            day = created_at.date().isoformat() if hasattr(created_at, "date") else str(created_at)[:10]
+            b = buckets.setdefault(day, [0, 0.0])
+            b[0] += 1
+            b[1] += health
+        return [
+            {"day": d, "runs": n, "avg_health": round(s / n, 2)}
+            for d, (n, s) in sorted(buckets.items())
+        ]

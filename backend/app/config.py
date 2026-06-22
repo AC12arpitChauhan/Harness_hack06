@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # --- Auth ------------------------------------------------------------
     fastapi_auth_token: str = "dev-token"  # override in prod; gate on POST routes
 
+    # --- CORS (dashboard frontend) ---------------------------------------
+    cors_allow_origins: str = "*"  # comma-separated origins; "*" allows all (demo default)
+
     # --- GitHub provider -------------------------------------------------
     github_token: str = ""
     github_api_url: str = "https://api.github.com"
@@ -84,6 +87,14 @@ class Settings(BaseSettings):
     def required_checks_list(self) -> list[str]:
         """REQUIRED_CHECKS parsed from comma-separated string into a list."""
         return [c.strip() for c in self.required_checks.split(",") if c.strip()]
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """CORS_ALLOW_ORIGINS parsed; '*' (or empty) means allow all."""
+        v = self.cors_allow_origins.strip()
+        if not v or v == "*":
+            return ["*"]
+        return [o.strip() for o in v.split(",") if o.strip()]
 
     # --- Scoring weights (single source of truth lives in scoring/engine.py) ---
     @property

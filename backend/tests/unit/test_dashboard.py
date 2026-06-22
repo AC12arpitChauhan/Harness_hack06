@@ -122,6 +122,32 @@ def test_signal_trends_endpoint(client, auth_headers, monkeypatch):
     assert isinstance(body["points"], list)
 
 
+def test_overview_endpoint(client, auth_headers, monkeypatch):
+    seeded = _seed(client, auth_headers, monkeypatch)
+    repo_id = seeded["repo_id"]
+    body = client.get(f"/api/v1/repositories/{repo_id}/overview").json()
+    assert body["repo_id"] == repo_id
+    assert body["counts"]["total"] == 1
+    assert body["counts"]["analyzed"] == 1
+    assert body["averages"]["health"] == 100.0
+    assert set(body["severity_distribution"]) == {"critical", "high", "medium", "low", "info"}
+    assert isinstance(body["top_signals"], list)
+
+
+def test_score_history_endpoint(client, auth_headers, monkeypatch):
+    seeded = _seed(client, auth_headers, monkeypatch)
+    repo_id = seeded["repo_id"]
+    body = client.get(f"/api/v1/repositories/{repo_id}/score_history?period_days=30").json()
+    assert body["repo_id"] == repo_id
+    assert len(body["points"]) >= 1
+    assert body["points"][0]["avg_health"] == 100.0
+
+
+def test_cors_header_present(client):
+    r = client.get("/api/v1/repositories", headers={"Origin": "http://localhost:5173"})
+    assert r.headers.get("access-control-allow-origin") in ("*", "http://localhost:5173")
+
+
 def test_backfill_requires_auth_and_accepts(client, auth_headers, monkeypatch):
     calls = []
     monkeypatch.setattr(

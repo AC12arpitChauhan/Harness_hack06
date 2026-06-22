@@ -13,9 +13,11 @@ from app.api.schemas import (
     BackfillRequest,
     MergeReadinessOut,
     NarrativeOut,
+    OverviewOut,
     PRDetail,
     PRListItem,
     RepositoryOut,
+    ScoreHistoryOut,
     ScoreSummary,
     SignalOut,
     SignalTrendOut,
@@ -156,6 +158,38 @@ def merge_readiness(
         blocking_signals=blocking,
         override_available=score.blocking_reason is not None,
     )
+
+
+@router.get("/repositories/{repo_id}/overview", response_model=OverviewOut)
+def repo_overview(
+    repo_id: str,
+    repository: Repository = Depends(repository_dep),
+    settings: Settings = Depends(settings_dep),
+) -> OverviewOut:
+    repo = repository.get_repository(repo_id)
+    if repo is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Repository not found")
+    data = repository.repo_overview(repo_id, settings.ready_threshold)
+    return OverviewOut(
+        repo_id=repo.id,
+        repo_name=repo.name,
+        provider=repo.provider,
+        counts=data["counts"],
+        averages=data["averages"],
+        severity_distribution=data["severity_distribution"],
+        top_signals=data["top_signals"],
+    )
+
+
+@router.get("/repositories/{repo_id}/score_history", response_model=ScoreHistoryOut)
+def score_history(
+    repo_id: str,
+    period_days: int = Query(default=30, ge=1, le=365),
+    repository: Repository = Depends(repository_dep),
+) -> ScoreHistoryOut:
+    _require_repo(repository, repo_id)
+    points = repository.score_history(repo_id, period_days)
+    return ScoreHistoryOut(repo_id=repo_id, period_days=period_days, points=points)
 
 
 @router.post(

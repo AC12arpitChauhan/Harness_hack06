@@ -134,3 +134,56 @@ class BackfillAccepted(BaseModel):
     provider: str
     repo: str
     since_days: int
+
+
+# --- overview / trends (dashboard hero widgets) ----------------------------
+class OverviewCounts(BaseModel):
+    total: int = 0
+    open: int = 0
+    merged: int = 0
+    closed: int = 0
+    ready: int = 0
+    blocked: int = 0
+    analyzed: int = 0
+
+
+class OverviewAverages(BaseModel):
+    health: float | None = None
+    risk: float | None = None
+    review_quality: float | None = None
+    merge_readiness: float | None = None
+
+
+class SeverityDistribution(BaseModel):
+    critical: int = 0
+    high: int = 0
+    medium: int = 0
+    low: int = 0
+    info: int = 0
+
+
+class TopSignal(BaseModel):
+    signal_name: str
+    count: int
+
+
+class OverviewOut(BaseModel):
+    repo_id: str
+    repo_name: str
+    provider: str
+    counts: OverviewCounts
+    averages: OverviewAverages
+    severity_distribution: SeverityDistribution
+    top_signals: list[TopSignal] = []
+
+
+class ScoreHistoryPoint(BaseModel):
+    day: str
+    runs: int
+    avg_health: float
+
+
+class ScoreHistoryOut(BaseModel):
+    repo_id: str
+    period_days: int
+    points: list[ScoreHistoryPoint] = []
