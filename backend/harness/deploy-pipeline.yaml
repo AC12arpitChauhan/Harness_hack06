@@ -24,7 +24,9 @@ pipeline:
             type: KubernetesDirect
             spec:
               connectorRef: account.btteamcluster
-              namespace: hack06-pr-health
+              # The BUILD pod runs here — must be a namespace that ALREADY exists.
+              # The app is deployed into hack06-pr-health (created in the Deploy step).
+              namespace: harness-delegate-ng
               automountServiceAccountToken: true
               nodeSelector: {}
               os: Linux
@@ -54,6 +56,9 @@ pipeline:
                       NS=hack06-pr-health
                       IMG=docker.io/ac12arpitchauhan/pr-health:<+pipeline.sequenceId>
                       PGPW='<+secrets.getValue("postgres_password")>'
+
+                      # 0) Create the target namespace (idempotent)
+                      kubectl apply -f backend/k8s/namespace.yaml
 
                       # 1) Secret (incl. DATABASE_URL + Postgres password), from Harness secrets
                       kubectl -n "$NS" create secret generic pr-health-secrets \
