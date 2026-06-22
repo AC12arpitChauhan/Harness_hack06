@@ -41,3 +41,23 @@ def test_pending_required_is_low():
 def test_all_passing_is_info():
     sigs = _names([check("build", CheckStatus.SUCCESS, required=True)])
     assert sigs["checks_passing"].severity is Severity.INFO
+
+
+def test_merged_with_failed_legacy_status_is_flagged():
+    """The headline metric: a PR merged while a build (sourced from a legacy
+    commit status, e.g. Harness) was failing."""
+    from app.providers.mappers import github_mapper as gh
+
+    payload = {
+        "state": "failure",
+        "statuses": [
+            {"context": "harness-ci", "state": "failure"},
+            {"context": "pr-health", "state": "failure"},  # our own — excluded
+        ],
+    }
+    checks = gh.map_statuses(payload, required_checks=[], exclude_contexts={"pr-health"})
+    sigs = {s.name: s for s in CiStatusAnalyzer().analyze(make_pr(merged=True), make_ctx(checks=checks))}
+
+    assert sigs["required_failing"].severity is Severity.CRITICAL
+    assert sigs["merged_despite_failure"].severity is Severity.CRITICAL
+    assert sigs["merged_despite_failure"].metadata["failing_checks"] == ["harness-ci"]

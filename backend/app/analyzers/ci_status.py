@@ -50,8 +50,11 @@ class CiStatusAnalyzer(Analyzer):
                         analyzer=self.name,
                         name="merged_despite_failure",
                         severity=Severity.CRITICAL,
-                        explanation="PR was merged despite a failing required check.",
+                        explanation=f"PR was MERGED despite failing required check(s): {names}.",
+                        value=float(len(failing_required)),
+                        threshold=0.0,
                         exceeds_threshold=True,
+                        metadata={"failing_checks": [c.name for c in failing_required]},
                     )
                 )
             return signals

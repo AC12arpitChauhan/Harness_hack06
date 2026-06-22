@@ -16,7 +16,7 @@ def get_provider(name: str, settings: Settings) -> SCMProvider:
         return GitHubProvider(
             token=settings.github_token,
             api_url=settings.github_api_url,
-            required_checks=settings.required_checks,
+            required_checks=settings.required_checks_list,
         )
     if name == "harness":
         return HarnessSCMProvider(
@@ -25,6 +25,6 @@ def get_provider(name: str, settings: Settings) -> SCMProvider:
             account_id=settings.harness_account_id,
             org_id=settings.harness_org_id,
             project_id=settings.harness_project_id,
-            required_checks=settings.required_checks,
+            required_checks=settings.required_checks_list,
         )
     raise ValueError(f"Unknown provider: {name!r}")

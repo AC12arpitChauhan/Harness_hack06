@@ -151,6 +151,47 @@ def map_checks(check_runs_payload: dict, required_checks: list[str]) -> list[Che
     return out
 
 
+_LEGACY_STATE = {
+    "success": CheckStatus.SUCCESS,
+    "failure": CheckStatus.FAILURE,
+    "error": CheckStatus.ERROR,
+    "pending": CheckStatus.PENDING,
+}
+
+
+def map_statuses(
+    status_payload: dict,
+    required_checks: list[str],
+    exclude_contexts: set[str] | None = None,
+) -> list[Check]:
+    """Map the legacy combined-status payload (/commits/{sha}/status) into Checks.
+
+    This is the OTHER half of GitHub's CI surface: many integrations (Harness
+    included) report via the legacy Status API rather than check-runs. ``context``
+    is the status's name. ``exclude_contexts`` drops our own write-back status so
+    the service never treats its own ``pr-health`` status as a CI check.
+    """
+    exclude = exclude_contexts or set()
+    out: list[Check] = []
+    seen: set[str] = set()
+    for status in status_payload.get("statuses", []):
+        context = status.get("context", "")
+        if context in exclude or context in seen:
+            continue
+        seen.add(context)
+        required = (not required_checks) or (context in required_checks)
+        out.append(
+            Check(
+                name=context,
+                status=_LEGACY_STATE.get((status.get("state") or "").lower(), CheckStatus.ERROR),
+                required=required,
+                completed_at=_dt(status.get("updated_at")),
+                url=status.get("target_url"),
+            )
+        )
+    return out
+
+
 def map_commits(commits: list[dict]) -> list[Commit]:
     out: list[Commit] = []
     for c in commits:

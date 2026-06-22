@@ -91,6 +91,24 @@ def test_map_checks_empty_allowlist_means_all_required():
     assert gh.map_checks(payload, required_checks=[])[0].required is True
 
 
+def test_map_statuses_legacy_and_excludes_self():
+    payload = {
+        "state": "failure",
+        "statuses": [
+            {"context": "continuous-integration/harness", "state": "failure",
+             "target_url": "https://app.harness.io/x", "updated_at": "2026-01-01T12:00:00Z"},
+            {"context": "lint", "state": "success"},
+            {"context": "pr-health", "state": "failure"},  # our own write-back — must be excluded
+        ],
+    }
+    checks = gh.map_statuses(payload, required_checks=[], exclude_contexts={"pr-health"})
+    by_name = {c.name: c for c in checks}
+    assert "pr-health" not in by_name  # self-status excluded (no feedback loop)
+    assert by_name["continuous-integration/harness"].status is CheckStatus.FAILURE
+    assert by_name["continuous-integration/harness"].required is True  # empty allowlist => required
+    assert by_name["lint"].status is CheckStatus.SUCCESS
+
+
 def test_map_commits():
     commits = gh.map_commits(
         [

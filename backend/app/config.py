@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.scoring.engine import (
@@ -54,8 +53,11 @@ class Settings(BaseSettings):
     writeback_enabled: bool = False
 
     # --- CI analysis -----------------------------------------------------
-    # Names of checks treated as "required". Empty => every check is required.
-    required_checks: list[str] = []
+    # Comma-separated names treated as "required". Empty => every check is required.
+    # Kept as a raw string (not list[str]) so an empty REQUIRED_CHECKS= in .env
+    # doesn't trip pydantic-settings' JSON decoding of complex fields. Use the
+    # `required_checks_list` property to get the parsed list.
+    required_checks: str = ""
 
     # --- Scoring: merge-readiness gate -----------------------------------
     ready_threshold: float = 70.0  # merge_readiness >= this AND no blocker => ready
@@ -70,13 +72,10 @@ class Settings(BaseSettings):
     review_trivial_lines: int = 10      # <= this many changed lines => un-reviewed PR doesn't block
     review_thin_reviewers: int = 2      # fewer distinct reviewers than this => thin review
 
-    @field_validator("required_checks", mode="before")
-    @classmethod
-    def _split_csv(cls, v: object) -> object:
-        """Allow REQUIRED_CHECKS to be a comma-separated env string."""
-        if isinstance(v, str):
-            return [item.strip() for item in v.split(",") if item.strip()]
-        return v
+    @property
+    def required_checks_list(self) -> list[str]:
+        """REQUIRED_CHECKS parsed from comma-separated string into a list."""
+        return [c.strip() for c in self.required_checks.split(",") if c.strip()]
 
     # --- Scoring weights (single source of truth lives in scoring/engine.py) ---
     @property

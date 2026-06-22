@@ -26,8 +26,12 @@ class GitHubProvider(SCMProvider):
         api_url: str = "https://api.github.com",
         required_checks: list[str] | None = None,
         timeout: float = 20.0,
+        exclude_status_contexts: set[str] | None = None,
     ) -> None:
         self.required_checks = required_checks or []
+        # Drop our own write-back commit status (writeback_service.STATUS_CONTEXT)
+        # so the service never scores its own "pr-health" status as a CI check.
+        self.exclude_status_contexts = exclude_status_contexts or {"pr-health"}
         headers = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
@@ -70,8 +74,18 @@ class GitHubProvider(SCMProvider):
         return gh.map_reviews(self._paginate(f"/repos/{repo}/pulls/{pr_id}/reviews"))
 
     def get_checks(self, repo: str, sha: str) -> list[Check]:
-        payload = self._get(f"/repos/{repo}/commits/{sha}/check-runs", {"per_page": _PER_PAGE})
-        return gh.map_checks(payload, self.required_checks)
+        """All build statuses for the head commit: modern check-runs AND legacy
+        commit statuses (Harness/Jenkins/etc. report here), merged + de-duped."""
+        runs = self._get(f"/repos/{repo}/commits/{sha}/check-runs", {"per_page": _PER_PAGE})
+        checks = gh.map_checks(runs, self.required_checks)
+        seen = {c.name for c in checks}
+
+        status = self._get(f"/repos/{repo}/commits/{sha}/status")
+        for check in gh.map_statuses(status, self.required_checks, self.exclude_status_contexts):
+            if check.name not in seen:
+                checks.append(check)
+                seen.add(check.name)
+        return checks
 
     def get_commits(self, repo: str, pr_id: int) -> list[Commit]:
         return gh.map_commits(self._paginate(f"/repos/{repo}/pulls/{pr_id}/commits"))
