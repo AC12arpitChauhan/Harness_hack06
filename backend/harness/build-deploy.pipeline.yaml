@@ -1,0 +1,74 @@
+pipeline:
+  name: PR Health — Build & Deploy
+  identifier: pr_health_build_deploy
+  projectIdentifier: CIBootcamp2026
+  orgIdentifier: default
+  properties:
+    ci:
+      codebase:
+        connectorRef: <+input>      # your Harness Code or GitHub connector
+        repoName: <+input>          # e.g. backend  (or owner/backend for GitHub)
+        build: <+input>
+  stages:
+    # ── CI: build the container image and push to registry ───────────────────
+    - stage:
+        name: Build Image
+        identifier: build_image
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: Build and Push
+                  identifier: build_and_push
+                  spec:
+                    connectorRef: <+input>        # Docker registry connector
+                    repo: <+input>                # e.g. docker.io/yourorg/pr-health-backend
+                    tags:
+                      - <+pipeline.sequenceId>
+                      - latest
+                    dockerfile: Dockerfile
+
+    # ── CD: rolling deploy to Kubernetes ─────────────────────────────────────
+    - stage:
+        name: Deploy to Kubernetes
+        identifier: deploy_k8s
+        type: Deployment
+        spec:
+          deploymentType: Kubernetes
+          service:
+            serviceRef: <+input>          # Harness Service pointing at k8s/deployment.yaml
+          environment:
+            environmentRef: <+input>      # e.g. "dev" or "prod"
+            deployToAll: false
+            infrastructureDefinitions:
+              - identifier: <+input>      # Infra connector → your K8s cluster + pr-health namespace
+          execution:
+            steps:
+              - step:
+                  type: K8sRollingDeploy
+                  name: Rolling Deploy
+                  identifier: rolling_deploy
+                  spec:
+                    skipDryRun: false
+                    pruningEnabled: false
+            rollbackSteps:
+              - step:
+                  type: K8sRollingRollback
+                  name: Rolling Rollback
+                  identifier: rolling_rollback
+                  spec: {}
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: StageRollback

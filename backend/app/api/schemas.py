@@ -134,3 +134,23 @@ class BackfillAccepted(BaseModel):
     provider: str
     repo: str
     since_days: int
+
+
+class RepoHealthSummary(BaseModel):
+    repo_id: str
+    name: str
+    provider: str
+    url: str
+    total_prs: int
+    merged_prs: int
+    avg_health_score: float | None = None
+    avg_risk_score: float | None = None
+    blocked_merges: int
+    needs_attention: bool
+
+
+class AuthorListItem(BaseModel):
+    author: str
+    pr_count: int
+    avg_health_score: float | None = None
+    avg_risk_score: float | None = None
