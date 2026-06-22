@@ -1,0 +1,1 @@
+"""Pure domain layer: canonical models, signals, scores. Imports stdlib only."""

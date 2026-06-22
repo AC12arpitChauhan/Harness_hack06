@@ -108,6 +108,20 @@ def test_unknown_repo_is_404(client):
     assert client.get("/api/v1/repositories/does-not-exist/prs").status_code == 404
 
 
+def test_signal_trends_endpoint(client, auth_headers, monkeypatch):
+    # Exercises signal_breach_trend (the Postgres-portable, Python-bucketed query).
+    seeded = _seed(client, auth_headers, monkeypatch)
+    repo_id = seeded["repo_id"]
+    r = client.get(
+        f"/api/v1/repositories/{repo_id}/signal_trends"
+        "?signal_name=merge_speed.fast_merge&period_days=30"
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["signal_name"] == "merge_speed.fast_merge"
+    assert isinstance(body["points"], list)
+
+
 def test_backfill_requires_auth_and_accepts(client, auth_headers, monkeypatch):
     calls = []
     monkeypatch.setattr(

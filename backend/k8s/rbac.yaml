@@ -1,0 +1,29 @@
+# Lets the CI pod's service account (the namespace `default` SA) create/update the
+# app + Postgres resources during the Deploy step. Apply ONCE (needs a namespace
+# admin — you or DevX). Without this, the Deploy step fails with "forbidden".
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pr-health-deployer
+  namespace: hack06-pr-health
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "services", "persistentvolumeclaims", "pods"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/status", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pr-health-deployer
+  namespace: hack06-pr-health
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: hack06-pr-health
+roleRef:
+  kind: Role
+  name: pr-health-deployer
+  apiGroup: rbac.authorization.k8s.io

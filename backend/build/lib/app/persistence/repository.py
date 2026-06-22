@@ -242,14 +242,11 @@ class Repository:
     def signal_breach_trend(
         self, repo_id: str, signal_name: str, period_days: int
     ) -> list[dict]:
-        """Daily breach counts for a signal across a repo's PRs.
-
-        Buckets by day in Python rather than a SQL date() call, so it's portable
-        across SQLite and PostgreSQL (Postgres has no sqlite-style date()).
-        """
+        """Daily breach counts for a signal across a repo's PRs."""
         since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=period_days)
-        timestamps = self.session.scalars(
-            select(orm.AnalysisSignal.created_at)
+        day = func.date(orm.AnalysisSignal.created_at)
+        stmt = (
+            select(day.label("day"), func.count().label("count"))
             .join(orm.AnalysisRun, orm.AnalysisRun.id == orm.AnalysisSignal.analysis_run_id)
             .join(orm.PullRequest, orm.PullRequest.id == orm.AnalysisRun.pr_id)
             .where(
@@ -258,12 +255,10 @@ class Repository:
                 orm.AnalysisSignal.exceeds_threshold.is_(True),
                 orm.AnalysisSignal.created_at >= since,
             )
+            .group_by(day)
+            .order_by(day)
         )
-        counts: dict[str, int] = {}
-        for ts in timestamps:
-            day = ts.date().isoformat() if hasattr(ts, "date") else str(ts)[:10]
-            counts[day] = counts.get(day, 0) + 1
-        return [{"day": d, "count": c} for d, c in sorted(counts.items())]
+        return [{"day": str(d), "count": int(c)} for d, c in self.session.execute(stmt)]
 
     def author_pr_stats(self, author: str) -> dict:
         """Per-author aggregates (individual author, never team)."""

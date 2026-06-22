@@ -5,3 +5,7 @@ __pycache__/
 .pytest_cache/
 .env
 *.db
+# never commit real secrets — only secret.example.yaml (placeholders) is tracked
+k8s/secret.local.yaml
+k8s/secret.yaml
+*.local.yaml

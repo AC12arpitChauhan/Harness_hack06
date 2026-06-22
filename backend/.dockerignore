@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.db
+.env
+tests/
+alembic/
+harness/
+k8s/
+*.md
+!README.md

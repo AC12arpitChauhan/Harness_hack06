@@ -1,0 +1,20 @@
+# ClusterIP — reachable from inside the cluster at:
+#   http://pr-health.hack06-pr-health.svc.cluster.local:8000
+# This is the URL the PR pipeline uses (it runs on the same cluster). To reach it
+# from your laptop/browser, either `kubectl port-forward` (see README) or switch
+# `type` to LoadBalancer / add an Ingress (cluster must support it).
+apiVersion: v1
+kind: Service
+metadata:
+  name: pr-health
+  namespace: hack06-pr-health
+  labels:
+    app: pr-health
+spec:
+  type: ClusterIP
+  selector:
+    app: pr-health
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

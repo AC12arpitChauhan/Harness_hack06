@@ -1,0 +1,76 @@
+pipeline:
+  name: deploy_pipeline
+  identifier: deploy_pipeline
+  projectIdentifier: hack06
+  orgIdentifier: bootcampjune2026
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: for_deploy_pipeline      # your GitHub connector
+        repoName: Harness_hack06               # repo that contains backend/ (Dockerfile + k8s/)
+        build: <+input>
+  stages:
+    - stage:
+        name: build_and_deploy
+        identifier: build_and_deploy
+        type: CI
+        spec:
+          cloneCodebase: true
+          caching:
+            enabled: true
+            override: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: account.btteamcluster
+              namespace: hack06-pr-health
+              automountServiceAccountToken: true
+              nodeSelector: {}
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: Build_and_Push
+                  identifier: Build_and_Push
+                  spec:
+                    connectorRef: account.dockerHub
+                    repo: ac12arpitchauhan/pr-health   # make this Docker Hub repo PUBLIC (or add an imagePullSecret)
+                    tags:
+                      - <+pipeline.sequenceId>
+                    dockerfile: backend/Dockerfile
+                    context: backend
+              - step:
+                  type: Run
+                  name: Deploy
+                  identifier: Deploy
+                  spec:
+                    connectorRef: account.dockerHub
+                    image: bitnami/kubectl:latest
+                    shell: Sh
+                    command: |
+                      set -e
+                      NS=hack06-pr-health
+                      IMG=docker.io/ac12arpitchauhan/pr-health:<+pipeline.sequenceId>
+                      PGPW='<+secrets.getValue("postgres_password")>'
+
+                      # 1) Secret (incl. DATABASE_URL + Postgres password), from Harness secrets
+                      kubectl -n "$NS" create secret generic pr-health-secrets \
+                        --from-literal=GITHUB_TOKEN='<+secrets.getValue("arpit_github_pat")>' \
+                        --from-literal=FASTAPI_AUTH_TOKEN='<+secrets.getValue("pr_health_api_token")>' \
+                        --from-literal=BEDROCK_API_KEY='<+secrets.getValue("bedrock_api_key")>' \
+                        --from-literal=POSTGRES_PASSWORD="$PGPW" \
+                        --from-literal=DATABASE_URL="postgresql+psycopg2://prhealth:${PGPW}@postgres:5432/prhealth" \
+                        --dry-run=client -o yaml | kubectl apply -f -
+
+                      # 2) Postgres (PVC + Deployment + Service), wait until ready
+                      kubectl -n "$NS" apply -f backend/k8s/postgres.yaml
+                      kubectl -n "$NS" rollout status deployment/postgres --timeout=180s
+
+                      # 3) App (Service + Deployment), pin the new image, wait for rollout
+                      kubectl -n "$NS" apply -f backend/k8s/service.yaml -f backend/k8s/deployment.yaml
+                      kubectl -n "$NS" set image deployment/pr-health pr-health="$IMG"
+                      kubectl -n "$NS" rollout status deployment/pr-health --timeout=180s
+
+                      echo "Deployed. In-cluster URL: http://pr-health.$NS.svc.cluster.local:8000"

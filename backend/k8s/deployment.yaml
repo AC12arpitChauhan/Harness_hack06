@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pr-health
+  namespace: hack06-pr-health
+  labels:
+    app: pr-health
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pr-health
+  template:
+    metadata:
+      labels:
+        app: pr-health
+    spec:
+      initContainers:
+        # Wait for Postgres to accept connections before the app starts.
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done"]
+      containers:
+        - name: pr-health
+          # The deploy pipeline overrides the tag via `kubectl set image`.
+          image: docker.io/ac12arpitchauhan/pr-health:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            # Non-secret config (matches app/config.py Settings)
+            - { name: LLM_ENABLED, value: "true" }
+            - { name: LLM_BACKEND, value: "bedrock" }
+            - { name: BEDROCK_REGION, value: "us-east-1" }
+            - { name: BEDROCK_MODEL, value: "us.anthropic.claude-sonnet-4-6" }
+            - { name: WRITEBACK_ENABLED, value: "true" }
+            # Secrets (created from Harness secrets by the deploy pipeline). DATABASE_URL
+            # points at the in-cluster Postgres and carries the password, so it stays out
+            # of the plain Deployment env.
+            - { name: DATABASE_URL,       valueFrom: { secretKeyRef: { name: pr-health-secrets, key: DATABASE_URL } } }
+            - { name: GITHUB_TOKEN,       valueFrom: { secretKeyRef: { name: pr-health-secrets, key: GITHUB_TOKEN } } }
+            - { name: FASTAPI_AUTH_TOKEN, valueFrom: { secretKeyRef: { name: pr-health-secrets, key: FASTAPI_AUTH_TOKEN } } }
+            - { name: BEDROCK_API_KEY,    valueFrom: { secretKeyRef: { name: pr-health-secrets, key: BEDROCK_API_KEY } } }
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 512Mi }
