@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+/* ───────────────────────── Editorial Premium — design tokens ─────────────────────────
+   Cool-gray canvas, near-black ink, oversized serif display, one warm accent + green for
+   health. Tabular numerics everywhere. No Inter/Roboto, no shadcn defaults, no gradients. */
+@theme {
+  --color-canvas: #f3f4f6;
+  --color-canvas-deep: #eceef1;
+  --color-surface: #ffffff;
+  --color-surface-2: #fafbfc;
+
+  --color-ink: #16171a;
+  --color-ink-soft: #5b606b;
+  --color-ink-mute: #8b92a0;
+  --color-hair: #e6e8ec;
+  --color-hair-strong: #d7dae0;
+
+  --color-health: #1f9d6b;
+  --color-health-soft: #e6f4ee;
+  --color-risk: #e5484d;
+  --color-risk-soft: #fdecec;
+  --color-accent: #d96e20;
+  --color-accent-soft: #fbeede;
+
+  /* severity scale */
+  --color-sev-critical: #e5484d;
+  --color-sev-high: #e8853a;
+  --color-sev-medium: #c08a00;
+  --color-sev-low: #7c8597;
+  --color-sev-info: #aeb4bf;
+
+  --font-display: "Instrument Serif", ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --radius-card: 22px;
+  --radius-sm: 12px;
+
+  --shadow-card: 0 1px 2px rgba(16, 17, 26, 0.03), 0 14px 34px -16px rgba(16, 17, 26, 0.12);
+  --shadow-pop: 0 8px 24px -8px rgba(16, 17, 26, 0.18), 0 30px 60px -24px rgba(16, 17, 26, 0.22);
+}
+
+/* ───────────────────────── base ───────────────────────── */
+:root {
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-ink);
+  color: var(--color-surface);
+}
+
+/* subtle scrollbar to match the editorial calm */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-hair-strong);
+  border-radius: 99px;
+  border: 3px solid var(--color-canvas);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ───────────────────────── reusable component classes ───────────────────────── */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hair);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  line-height: 0.96;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-mute);
+}
+
+/* hairline rule used between editorial sections */
+.rule {
+  height: 1px;
+  background: var(--color-hair);
+}
+
+/* skeleton shimmer */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-canvas-deep);
+  border-radius: 10px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.65),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
