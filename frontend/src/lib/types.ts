@@ -149,3 +149,44 @@ export interface ScoringConfigUpdate {
   risk_weights: Record<string, number>;
   thresholds: Record<string, number>;
 }
+
+export interface FailingCheck {
+  name: string;
+  status: string;
+  url: string | null;
+}
+
+export interface AIFixOut {
+  pr_id: string;
+  has_failures: boolean;
+  failing_checks: FailingCheck[];
+  suggestion: string;
+  model: string;
+}
+
+export interface RepoAttentionOut {
+  repo_id: string;
+  name: string;
+  provider: string;
+  merged_prs: number;
+  build_violation_rate: number | null;
+  attention_score: number;
+  needs_attention: boolean;
+  signal_counts: Record<string, number>;
+  reasons: string[];
+}
+
+export interface BehaviourCorrelation {
+  behaviour: string;
+  with_total: number;
+  with_rate: number | null;
+  wo_total: number;
+  wo_rate: number | null;
+}
+
+export interface RevertAnalysisOut {
+  repo_id: string;
+  merged: number;
+  reverted: number;
+  behaviours: BehaviourCorrelation[];
+}

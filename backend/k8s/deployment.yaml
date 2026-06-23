@@ -34,6 +34,8 @@ spec:
             - { name: BEDROCK_REGION, value: "us-east-1" }
             - { name: BEDROCK_MODEL, value: "us.anthropic.claude-sonnet-4-6" }
             - { name: WRITEBACK_ENABLED, value: "true" }
+            # Public dashboard base for the "AI fix" deep link in Slack alerts (blank = no link).
+            - { name: DASHBOARD_URL, value: "" }
             # Secrets (created from Harness secrets by the deploy pipeline). DATABASE_URL
             # points at the in-cluster Postgres and carries the password, so it stays out
             # of the plain Deployment env.
@@ -41,6 +43,8 @@ spec:
             - { name: GITHUB_TOKEN,       valueFrom: { secretKeyRef: { name: pr-health-secrets, key: GITHUB_TOKEN } } }
             - { name: FASTAPI_AUTH_TOKEN, valueFrom: { secretKeyRef: { name: pr-health-secrets, key: FASTAPI_AUTH_TOKEN } } }
             - { name: BEDROCK_API_KEY,    valueFrom: { secretKeyRef: { name: pr-health-secrets, key: BEDROCK_API_KEY } } }
+            # Optional — alerts stay disabled (no-op) until this key exists in the secret.
+            - { name: SLACK_WEBHOOK_URL,  valueFrom: { secretKeyRef: { name: pr-health-secrets, key: SLACK_WEBHOOK_URL, optional: true } } }
           readinessProbe:
             httpGet: { path: /health, port: 8000 }
             initialDelaySeconds: 5

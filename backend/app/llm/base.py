@@ -34,3 +34,16 @@ class LLMProvider(ABC):
         failure, so an operator sees the true error); no-network providers just
         return their model tag."""
         return getattr(self, "model", "unknown")
+
+    def suggest_fix(
+        self,
+        failing_checks: list[dict],
+        pr_title: str | None = None,
+        log_text: str | None = None,
+    ) -> str:
+        """Suggest how to make failing checks pass. The default returns deterministic
+        templated guidance (used by the no-network narrator); LLM providers override
+        this to return a model-generated, cause-specific suggestion."""
+        from app.llm import prompts
+
+        return prompts.templated_fix(failing_checks, pr_title)

@@ -42,6 +42,18 @@ class AnthropicNarrator(LLMProvider):
         )
         return resp.model or self.model
 
+    def suggest_fix(self, failing_checks, pr_title=None, log_text=None) -> str:
+        resp = self._client.messages.create(
+            model=self.model,
+            max_tokens=max(self.max_tokens, 1500),
+            system=prompts.SUGGEST_FIX_SYSTEM,
+            messages=[
+                {"role": "user", "content": prompts.build_fix_user(failing_checks, pr_title, log_text)}
+            ],
+        )
+        text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+        return text or prompts.templated_fix(failing_checks, pr_title)
+
 
 def _split_sections(text: str) -> tuple[str, str]:
     """Parse 'SUMMARY: ... RECOMMENDATION: ...'; degrade gracefully if unformatted."""

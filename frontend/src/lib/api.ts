@@ -1,10 +1,13 @@
 import type {
+  AIFixOut,
   AuthorStatsOut,
   MergeReadinessOut,
   OverviewOut,
   PRDetail,
   PRListItem,
+  RepoAttentionOut,
   RepositoryOut,
+  RevertAnalysisOut,
   ScoreHistoryOut,
   ScoringConfigOut,
   ScoringConfigUpdate,
@@ -98,10 +101,15 @@ async function send<T>(method: "PUT" | "DELETE", path: string, body?: unknown): 
 export const api = {
   repositories: () => get<RepositoryOut[]>("/repositories"),
 
+  needsAttention: () => get<RepoAttentionOut[]>("/repositories/needs_attention"),
+
   overview: (repoId: string) => get<OverviewOut>(`/repositories/${repoId}/overview`),
 
   scoreHistory: (repoId: string, periodDays = 30) =>
     get<ScoreHistoryOut>(`/repositories/${repoId}/score_history`, { period_days: periodDays }),
+
+  revertAnalysis: (repoId: string) =>
+    get<RevertAnalysisOut>(`/repositories/${repoId}/revert_analysis`),
 
   prs: (
     repoId: string,
@@ -113,6 +121,9 @@ export const api = {
 
   mergeReadiness: (repoId: string, prId: string) =>
     get<MergeReadinessOut>(`/repositories/${repoId}/prs/${prId}/merge_readiness`),
+
+  aiFix: (repoId: string, prId: string) =>
+    get<AIFixOut>(`/repositories/${repoId}/prs/${prId}/ai_fix`),
 
   authorStats: (author: string) =>
     get<AuthorStatsOut>(`/authors/${encodeURIComponent(author)}/pr_stats`),

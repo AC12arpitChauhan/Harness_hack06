@@ -210,6 +210,53 @@ class ScoringConfigUpdate(BaseModel):
     thresholds: dict[str, float] = Field(default_factory=dict)
 
 
+class FailingCheck(BaseModel):
+    name: str
+    status: str
+    url: str | None = None
+
+
+class AIFixOut(BaseModel):
+    """On-demand 'how to fix this failing build' suggestion for a PR. ``suggestion``
+    is LLM-generated when the LLM is configured, else a deterministic templated
+    heuristic; ``model`` names the producer."""
+    pr_id: str
+    has_failures: bool
+    failing_checks: list[FailingCheck] = []
+    suggestion: str = ""
+    model: str = ""
+
+
+class RepoAttentionOut(BaseModel):
+    """One repo's standing in the 'which repos need attention?' ranking (Question 2)."""
+    repo_id: str
+    name: str
+    provider: str
+    merged_prs: int
+    build_violation_rate: float | None = None  # % of merged PRs shipped without a passing build
+    attention_score: float
+    needs_attention: bool
+    signal_counts: dict[str, int]
+    reasons: list[str] = []
+
+
+class BehaviourCorrelation(BaseModel):
+    behaviour: str
+    with_total: int
+    with_rate: float | None = None  # revert-rate (%) among PRs that HAD the behaviour
+    wo_total: int
+    wo_rate: float | None = None  # revert-rate (%) among PRs that did NOT
+
+
+class RevertAnalysisOut(BaseModel):
+    """Behaviour-vs-revert correlation for a repo (Question 3). A behaviour whose PRs
+    are reverted LESS correlates with higher quality. Needs history to be meaningful."""
+    repo_id: str
+    merged: int
+    reverted: int
+    behaviours: list[BehaviourCorrelation] = []
+
+
 class LLMCheckOut(BaseModel):
     """Synchronous diagnostic for the /analyze -> narrate path. `ok` means a live
     round-trip to the configured narrator succeeded; `error` carries the real

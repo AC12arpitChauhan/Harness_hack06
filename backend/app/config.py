@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     # --- Writeback (GitHub comment + status check) -----------------------
     writeback_enabled: bool = False
 
+    # --- Slack alerts (build-failure notifications) ----------------------
+    # Disabled until SLACK_WEBHOOK_URL is set (graceful no-op). DASHBOARD_URL is
+    # the public dashboard base used to build the "AI fix" deep link in alerts.
+    slack_webhook_url: str = ""
+    dashboard_url: str = ""
+
     # --- CI analysis -----------------------------------------------------
     # Comma-separated names treated as "required". Empty => every check is required.
     # Kept as a raw string (not list[str]) so an empty REQUIRED_CHECKS= in .env
@@ -95,6 +101,11 @@ class Settings(BaseSettings):
         if not v or v == "*":
             return ["*"]
         return [o.strip() for o in v.split(",") if o.strip()]
+
+    @property
+    def slack_enabled(self) -> bool:
+        """Slack alerts fire only when a webhook URL is configured."""
+        return bool(self.slack_webhook_url.strip())
 
     # --- Scoring weights (single source of truth lives in scoring/engine.py) ---
     @property

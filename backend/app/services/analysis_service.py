@@ -25,6 +25,7 @@ from app.providers.base import SCMProvider
 from app.providers.registry import get_provider
 from app.scoring.engine import ScoringEngine
 from app.services.scoring_config import default_config
+from app.services import slack_service
 from app.services.writeback_service import do_writeback
 
 logger = logging.getLogger("pr_health.analysis")
@@ -152,6 +153,25 @@ def post_analysis(
         posted_at=_now() if writeback_enabled else None,
     )
     repository.session.commit()
+
+    # If CI is failing, enrich the write-back comment with an AI fix suggestion.
+    # Best-effort: a failure here must never block the health comment from posting.
+    fix_suggestion: str | None = None
+    failing = [
+        {"name": c.check_name, "status": c.status, "url": c.url}
+        for c in repository.checks_for_pr(result.pr_id)
+        if (c.status or "").lower() in {"failure", "error"}
+    ]
+    if failing:
+        try:
+            fix_suggestion = narrator.suggest_fix(failing, pr_title=result.pull_request.title)
+        except Exception:  # pragma: no cover - defensive; never block writeback
+            logger.warning(
+                "fix-suggestion generation failed for %s#%s; posting without it",
+                repo,
+                result.pull_request.number,
+            )
+
     do_writeback(
         provider,
         repo,
@@ -160,7 +180,47 @@ def post_analysis(
         narrative,
         enabled=writeback_enabled,
         ready_threshold=ready_threshold,
+        fix_suggestion=fix_suggestion,
     )
+
+
+def _maybe_slack_alert(
+    settings: Settings, repository: Repository, provider_name: str, repo: str, result: AnalysisResult
+) -> None:
+    """Fire a deduped Slack build-failure alert when CI checks failed. Independent of
+    narration; a no-op when Slack is not configured. Never raises into the caller."""
+    if not settings.slack_enabled:
+        return
+    try:
+        failing = [
+            c.check_name
+            for c in repository.checks_for_pr(result.pr_id)
+            if (c.status or "").lower() in {"failure", "error"}
+        ]
+        if not failing:
+            return
+        pr = result.pull_request
+        pr_url = (
+            f"https://github.com/{repo}/pull/{pr.number}" if provider_name == "github" else None
+        )
+        fix_url = (
+            f"{settings.dashboard_url.rstrip('/')}/repos/{result.repo_id}/prs/{result.pr_id}"
+            if settings.dashboard_url
+            else None
+        )
+        slack_service.notify_build_failed(
+            settings,
+            number=pr.number,
+            title=pr.title,
+            target=pr.target_branch,
+            author=pr.author,
+            failing_checks=failing,
+            pr_url=pr_url,
+            fix_url=fix_url,
+            dedupe_key=f"{result.pr_id}:{pr.commit_sha or ''}",
+        )
+    except Exception:  # pragma: no cover - defensive; alerts must never break the flow
+        logger.warning("slack alert failed for %s#%s", repo, result.pull_request.number)
 
 
 def run_post_analysis(provider_name: str, repo: str, result: AnalysisResult, settings: Settings) -> None:
@@ -170,11 +230,13 @@ def run_post_analysis(provider_name: str, repo: str, result: AnalysisResult, set
     provider = None
     try:
         provider = get_provider(provider_name, settings)
+        repository = Repository(session)
+        _maybe_slack_alert(settings, repository, provider_name, repo, result)
         post_analysis(
             result,
             repo,
             narrator=build_narrator(settings),
-            repository=Repository(session),
+            repository=repository,
             provider=provider,
             writeback_enabled=settings.writeback_enabled,
             ready_threshold=settings.ready_threshold,

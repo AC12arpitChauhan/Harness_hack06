@@ -8,16 +8,20 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 
 from app.api.deps import repository_dep, require_auth, settings_dep
 from app.api.schemas import (
+    AIFixOut,
     AuthorStatsOut,
     BackfillAccepted,
     BackfillRequest,
+    FailingCheck,
     LLMCheckOut,
     MergeReadinessOut,
     NarrativeOut,
     OverviewOut,
     PRDetail,
     PRListItem,
+    RepoAttentionOut,
     RepositoryOut,
+    RevertAnalysisOut,
     ScoreHistoryOut,
     ScoringConfigOut,
     ScoringConfigUpdate,
@@ -26,6 +30,7 @@ from app.api.schemas import (
     SignalTrendOut,
 )
 from app.config import Settings
+from app.llm import prompts
 from app.llm.registry import build_narrator
 from app.persistence import orm
 from app.persistence.repository import Repository
@@ -76,6 +81,15 @@ def list_repositories(repository: Repository = Depends(repository_dep)) -> list[
             )
         )
     return out
+
+
+@router.get("/repositories/needs_attention", response_model=list[RepoAttentionOut])
+def repos_needs_attention(
+    repository: Repository = Depends(repository_dep),
+) -> list[RepoAttentionOut]:
+    """Which repositories need attention (Question 2): ranked worst-first by the MVP
+    build-violation rate, with a weighted attention score + human-readable reasons."""
+    return [RepoAttentionOut(**row) for row in repository.needs_attention()]
 
 
 @router.get("/repositories/{repo_id}/prs", response_model=list[PRListItem])
@@ -169,6 +183,50 @@ def merge_readiness(
     )
 
 
+_FAILING_CHECK_STATUSES = {"failure", "error"}
+
+
+@router.get("/repositories/{repo_id}/prs/{pr_id}/ai_fix", response_model=AIFixOut)
+def ai_fix(
+    repo_id: str,
+    pr_id: str,
+    repository: Repository = Depends(repository_dep),
+    settings: Settings = Depends(settings_dep),
+) -> AIFixOut:
+    """On-demand 'how do I fix this failing build?' suggestion for a PR. Derives the
+    failing checks from the persisted snapshot and asks the configured LLM (falling
+    back to deterministic templated guidance when the LLM is disabled or errors).
+    Open read — but it makes a model call, so the frontend fetches it on demand only."""
+    _require_repo(repository, repo_id)
+    pr = repository.get_pull_request(pr_id)
+    if pr is None or pr.repo_id != repo_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "PR not found")
+
+    failing = [
+        c for c in repository.checks_for_pr(pr_id)
+        if (c.status or "").lower() in _FAILING_CHECK_STATUSES
+    ]
+    if not failing:
+        return AIFixOut(pr_id=pr_id, has_failures=False, failing_checks=[], suggestion="", model="")
+
+    fc_dicts = [{"name": c.check_name, "status": c.status, "url": c.url} for c in failing]
+    narrator = build_narrator(settings)
+    model_label = getattr(narrator, "model", None) or "templated-fallback"
+    try:
+        suggestion = narrator.suggest_fix(fc_dicts, pr_title=pr.title)
+    except Exception:  # LLM error (e.g. bad key) — degrade to deterministic guidance
+        suggestion = prompts.templated_fix(fc_dicts, pr.title)
+        model_label = "templated-fallback"
+
+    return AIFixOut(
+        pr_id=pr_id,
+        has_failures=True,
+        failing_checks=[FailingCheck(name=c.check_name, status=c.status, url=c.url) for c in failing],
+        suggestion=suggestion,
+        model=model_label,
+    )
+
+
 @router.get("/repositories/{repo_id}/overview", response_model=OverviewOut)
 def repo_overview(
     repo_id: str,
@@ -188,6 +246,16 @@ def repo_overview(
         severity_distribution=data["severity_distribution"],
         top_signals=data["top_signals"],
     )
+
+
+@router.get("/repositories/{repo_id}/revert_analysis", response_model=RevertAnalysisOut)
+def revert_analysis(
+    repo_id: str, repository: Repository = Depends(repository_dep)
+) -> RevertAnalysisOut:
+    """Behaviour-vs-revert correlation (Question 3) over the repo's merged PRs."""
+    _require_repo(repository, repo_id)
+    data = repository.revert_correlation(repo_id)
+    return RevertAnalysisOut(repo_id=repo_id, **data)
 
 
 @router.get("/repositories/{repo_id}/score_history", response_model=ScoreHistoryOut)

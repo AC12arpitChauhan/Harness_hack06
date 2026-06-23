@@ -6,6 +6,7 @@ whole run persists atomically. Domain objects come in; ORM rows go out.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select
@@ -250,6 +251,12 @@ class Repository:
     def diff_for_pr(self, pr_id: str) -> orm.PrDiff | None:
         return self.session.scalar(select(orm.PrDiff).where(orm.PrDiff.pr_id == pr_id))
 
+    def checks_for_pr(self, pr_id: str) -> list[orm.PrCheck]:
+        """Persisted CI checks for a PR (latest snapshot from the last analysis)."""
+        return list(
+            self.session.scalars(select(orm.PrCheck).where(orm.PrCheck.pr_id == pr_id))
+        )
+
     # ---- dashboard reads (added in Phase D) ----
     def list_repositories(self) -> list[orm.Repository]:
         return list(self.session.scalars(select(orm.Repository).order_by(orm.Repository.created_at)))
@@ -357,6 +364,139 @@ class Repository:
             "severity_distribution": severity,
             "top_signals": [{"signal_name": k, "count": c} for k, c in top],
         }
+
+    # ---- needs-attention ranking (Question 2: which repos need attention) ----
+    # Ported from the sibling app's attention model, mapped onto our signal keys.
+    _ATTENTION_WEIGHTS = {
+        "merged_without_passing_build": 3,  # shipped unverified — most serious
+        "large_change_low_review": 2,       # big change, weak review
+        "no_linked_jira_ticket": 1,         # untraceable
+        "merged_too_fast": 1,               # rushed
+    }
+    _ATTENTION_THRESHOLD = 1.0              # weighted violations / merged PR
+    _MIN_MERGED_FOR_ATTENTION = 5           # anti-noise: need enough merged PRs to judge
+    _CI_FAIL_KEYS = {
+        "ci_status.merged_despite_failure",
+        "ci_status.required_failing",
+        "ci_status.no_checks",  # no CI gating the merge == violation, by design
+    }
+    _REVIEW_WEAK_KEYS = {
+        "review_quality.no_reviews",
+        "review_quality.no_approval",
+        "review_quality.single_reviewer",
+    }
+
+    @classmethod
+    def _violations_for(cls, signal_names: set[str]) -> dict[str, bool]:
+        """Map a merged PR's persisted signal names to the four violation categories."""
+        return {
+            "merged_without_passing_build": bool(signal_names & cls._CI_FAIL_KEYS),
+            "merged_too_fast": "merge_speed.fast_merge" in signal_names,
+            "no_linked_jira_ticket": "ticket_linkage.no_jira" in signal_names,
+            "large_change_low_review": (
+                "change_size.large_diff" in signal_names and bool(signal_names & cls._REVIEW_WEAK_KEYS)
+            ),
+        }
+
+    @classmethod
+    def _behaviours_for(cls, signal_names: set[str]) -> dict[str, bool]:
+        """The GOOD practices present on a merged PR (inverse of the violations)."""
+        return {
+            "passing_build": not (signal_names & cls._CI_FAIL_KEYS),
+            "linked_jira": "ticket_linkage.no_jira" not in signal_names,
+            "small_change": "change_size.large_diff" not in signal_names,
+            "unrushed_merge": "merge_speed.fast_merge" not in signal_names,
+        }
+
+    def needs_attention(self) -> list[dict]:
+        """Per-repo attention ranking over merged PRs' latest-run signals. Worst-first
+        by the MVP build-violation rate; repos with no merged PRs sink to the bottom."""
+        out: list[dict] = []
+        for repo in self.list_repositories():
+            merged_pairs = self.list_prs_with_latest_score(repo.id, "merged", "created_at", 100000)
+            merged = len(merged_pairs)
+            counts = {c: 0 for c in self._ATTENTION_WEIGHTS}
+            for pr, _score in merged_pairs:
+                run = self.latest_run_for_pr(pr.id)
+                names = {s.signal_name for s in self.signals_for_run(run.id)} if run else set()
+                for cat, bad in self._violations_for(names).items():
+                    if bad:
+                        counts[cat] += 1
+            build_rate = (counts["merged_without_passing_build"] / merged * 100) if merged else None
+            weighted = sum(counts[c] * self._ATTENTION_WEIGHTS[c] for c in self._ATTENTION_WEIGHTS)
+            score = (weighted / merged) if merged else 0.0
+            reasons = [
+                f"{counts[c]} {c.replace('_', ' ')} ({counts[c] / merged * 100:.0f}%)"
+                for c in sorted(self._ATTENTION_WEIGHTS, key=lambda x: -counts[x])
+                if counts[c] and merged
+            ]
+            out.append(
+                {
+                    "repo_id": repo.id,
+                    "name": repo.name,
+                    "provider": repo.provider,
+                    "merged_prs": merged,
+                    "build_violation_rate": round(build_rate, 1) if build_rate is not None else None,
+                    "attention_score": round(score, 2),
+                    "needs_attention": merged >= self._MIN_MERGED_FOR_ATTENTION
+                    and score >= self._ATTENTION_THRESHOLD,
+                    "signal_counts": counts,
+                    "reasons": reasons,
+                }
+            )
+        out.sort(key=lambda r: (r["build_violation_rate"] is None, -(r["build_violation_rate"] or 0)))
+        return out
+
+    # ---- revert correlation (Question 3: what behaviours correlate with quality) ----
+    _REVERT_RE = re.compile(r"#(\d+)")
+    _BEHAVIOURS = ["passing_build", "linked_jira", "small_change", "unrushed_merge"]
+
+    def revert_correlation(self, repo_id: str) -> dict:
+        """Outcome proxy: a merged PR is 'bad' if a later 'Revert … #N' PR undid it.
+        For each good behaviour, compare the revert rate of PRs that HAD it vs didn't.
+        Correlation, not causation — and meaningful only with enough history."""
+        all_pairs = self.list_prs_with_latest_score(repo_id, None, "created_at", 100000)
+
+        reverted: set[int] = set()
+        for pr, _ in all_pairs:
+            title = pr.title or ""
+            if "revert" in title.lower():
+                reverted.update(int(m) for m in self._REVERT_RE.findall(title))
+
+        stats = {
+            b: {"with_total": 0, "with_bad": 0, "wo_total": 0, "wo_bad": 0} for b in self._BEHAVIOURS
+        }
+        merged_total = 0
+        reverted_total = 0
+        for pr, _ in all_pairs:
+            if pr.state != "merged":
+                continue
+            merged_total += 1
+            num = int(pr.provider_pr_id) if (pr.provider_pr_id or "").isdigit() else None
+            bad = num is not None and num in reverted
+            if bad:
+                reverted_total += 1
+            run = self.latest_run_for_pr(pr.id)
+            names = {s.signal_name for s in self.signals_for_run(run.id)} if run else set()
+            for behaviour, present in self._behaviours_for(names).items():
+                side = "with" if present else "wo"
+                stats[behaviour][f"{side}_total"] += 1
+                if bad:
+                    stats[behaviour][f"{side}_bad"] += 1
+
+        behaviours = []
+        for b in self._BEHAVIOURS:
+            s = stats[b]
+            behaviours.append(
+                {
+                    "behaviour": b,
+                    "with_total": s["with_total"],
+                    "with_rate": round(s["with_bad"] / s["with_total"] * 100, 1) if s["with_total"] else None,
+                    "wo_total": s["wo_total"],
+                    "wo_rate": round(s["wo_bad"] / s["wo_total"] * 100, 1) if s["wo_total"] else None,
+                }
+            )
+        return {"merged": merged_total, "reverted": reverted_total, "behaviours": behaviours}
 
     def score_history(self, repo_id: str, period_days: int) -> list[dict]:
         """Daily avg health + run count across the repo's analyses (Python bucketing,

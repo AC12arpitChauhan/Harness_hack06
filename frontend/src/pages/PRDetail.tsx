@@ -6,6 +6,7 @@ import { ErrorState, Skeleton } from "../components/primitives/States";
 import { usePRDetail, useMergeReadiness } from "../lib/queries";
 import { humanizeSignal, severityColor, SEVERITY_ORDER, scoreFixed } from "../lib/format";
 import type { SignalOut } from "../lib/types";
+import { AiFixPanel } from "../components/widgets/AiFixPanel";
 
 interface Props {
   repoId: string | undefined;
@@ -188,6 +189,9 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
                       </ul>
                     )}
                   </div>
+
+                  {/* AI fix suggestion (on demand) */}
+                  <AiFixPanel repoId={repoId} prId={prId} />
 
                   {/* AI narrative */}
                   {d.narrative && (

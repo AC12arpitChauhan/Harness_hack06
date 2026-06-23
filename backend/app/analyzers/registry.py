@@ -2,8 +2,9 @@
 so the analyzers package stays free of external deps. The API layer passes
 settings-derived values in.
 
-The four real analyzers are wired here. ticket_linkage is intentionally NOT
-included — it is a FUTURE stub and is not scored this round.
+Five analyzers are wired here. ticket_linkage emits a Jira-linkage signal but is
+intentionally NOT in the scoring weight maps (scoring/engine.py), so its signals
+surface in the breakdown without moving the deterministic scores.
 """
 from __future__ import annotations
 
@@ -26,6 +27,7 @@ from app.analyzers.review_quality import (
     DEFAULT_TRIVIAL_LINES,
     ReviewQualityAnalyzer,
 )
+from app.analyzers.ticket_linkage import TicketLinkageAnalyzer
 
 
 def enabled_analyzers(
@@ -46,4 +48,5 @@ def enabled_analyzers(
         ),
         ReviewQualityAnalyzer(review_trivial_lines, review_thin_reviewers),
         CiStatusAnalyzer(),
+        TicketLinkageAnalyzer(),
     ]

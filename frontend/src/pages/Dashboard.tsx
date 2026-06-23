@@ -10,6 +10,8 @@ import { MergeReadinessCard } from "../components/widgets/MergeReadinessCard";
 import { SignalBreakdown } from "../components/widgets/SignalBreakdown";
 import { MergeFunnel } from "../components/widgets/MergeFunnel";
 import { AuthorSpotlight } from "../components/widgets/AuthorSpotlight";
+import { NeedsAttention } from "../components/widgets/NeedsAttention";
+import { RevertCorrelation } from "../components/widgets/RevertCorrelation";
 import { PRDetailDrawer } from "./PRDetail";
 import { EmptyState, ErrorState, Skeleton } from "../components/primitives/States";
 import { useOverview, usePRs, useRepositories } from "../lib/queries";
@@ -125,6 +127,15 @@ export function Dashboard() {
           <SignalBreakdown repoId={selectedId} />
           <MergeFunnel repoId={selectedId} />
           <AuthorSpotlight author={topAuthor} />
+        </div>
+
+        {/* Question 2 + Question 3 — engineering-practice analytics */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
+          <NeedsAttention
+            selectedId={selectedId}
+            onSelect={(id) => navigate(`/repos/${id}`)}
+          />
+          <RevertCorrelation repoId={selectedId} />
         </div>
       </div>
 

@@ -20,7 +20,13 @@ logger = logging.getLogger("pr_health.writeback")
 STATUS_CONTEXT = "pr-health"
 
 
-def render_comment(pr: PullRequest, score: Score, narrative: Narrative, ready: bool) -> str:
+def render_comment(
+    pr: PullRequest,
+    score: Score,
+    narrative: Narrative,
+    ready: bool,
+    fix_suggestion: str | None = None,
+) -> str:
     badge = "✅" if ready else "⚠️"
     lines = [
         f"## PR Health: {score.health_score:.0f}/100 {badge}",
@@ -38,6 +44,15 @@ def render_comment(pr: PullRequest, score: Score, narrative: Narrative, ready: b
         "",
         "**Recommendation.**",
         narrative.recommendation,
+    ]
+    if fix_suggestion:
+        lines += [
+            "",
+            "**🤖 AI fix suggestion (CI failing).**",
+            "",
+            fix_suggestion,
+        ]
+    lines += [
         "",
         f"<sub>Scores computed deterministically · narrative by `{narrative.model}`</sub>",
     ]
@@ -53,9 +68,10 @@ def do_writeback(
     *,
     enabled: bool,
     ready_threshold: float,
+    fix_suggestion: str | None = None,
 ) -> None:
     ready = score.blocking_reason is None and score.merge_readiness >= ready_threshold
-    body = render_comment(pr, score, narrative, ready)
+    body = render_comment(pr, score, narrative, ready, fix_suggestion)
     state = "success" if ready else "failure"
     description = f"Health {score.health_score:.0f}/100" + (
         "" if ready else f" — {score.blocking_reason or 'not ready'}"
