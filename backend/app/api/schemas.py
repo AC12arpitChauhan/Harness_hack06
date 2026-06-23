@@ -189,6 +189,27 @@ class ScoreHistoryOut(BaseModel):
     points: list[ScoreHistoryPoint] = []
 
 
+class ScoringConfigOut(BaseModel):
+    """The active scoring knobs — the weights every PR is scored against plus the
+    analyzer thresholds. Reflects engine defaults overlaid with the team override;
+    ``customized`` is True when a team override is in effect."""
+    health_weights: dict[str, float]
+    risk_weights: dict[str, float]
+    severity_penalties: dict[str, float]
+    blocked_cap: float
+    ready_threshold: float
+    thresholds: dict[str, float]
+    customized: bool = False
+
+
+class ScoringConfigUpdate(BaseModel):
+    """Team override submitted from the Settings page. Weights are normalized and
+    thresholds sanitized server-side, so partial/odd input can't break scoring."""
+    health_weights: dict[str, float] = Field(default_factory=dict)
+    risk_weights: dict[str, float] = Field(default_factory=dict)
+    thresholds: dict[str, float] = Field(default_factory=dict)
+
+
 class LLMCheckOut(BaseModel):
     """Synchronous diagnostic for the /analyze -> narrate path. `ok` means a live
     round-trip to the configured narrator succeeded; `error` carries the real

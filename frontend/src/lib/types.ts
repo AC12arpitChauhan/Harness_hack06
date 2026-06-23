@@ -133,3 +133,19 @@ export interface MergeReadinessOut {
   blocking_signals: string[];
   override_available: boolean;
 }
+
+export interface ScoringConfigOut {
+  health_weights: Record<string, number>;
+  risk_weights: Record<string, number>;
+  severity_penalties: Record<string, number>;
+  blocked_cap: number;
+  ready_threshold: number;
+  thresholds: Record<string, number>;
+  customized: boolean;
+}
+
+export interface ScoringConfigUpdate {
+  health_weights: Record<string, number>;
+  risk_weights: Record<string, number>;
+  thresholds: Record<string, number>;
+}

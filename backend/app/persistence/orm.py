@@ -179,6 +179,22 @@ class PrNarrative(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
 
+class ScoringConfig(Base):
+    """Single-row global override for the scoring knobs (weights + thresholds).
+
+    Lets a team personalize which parameters weigh more/less. Empty JSON fields
+    mean "use the engine defaults" for that group. Applied to FUTURE analyses;
+    the deterministic core itself is unchanged.
+    """
+    __tablename__ = "scoring_config"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # always "global"
+    health_weights_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    risk_weights_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    thresholds_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
 class RepositoryMetric(Base):
     __tablename__ = "repository_metrics"
 

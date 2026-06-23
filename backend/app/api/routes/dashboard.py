@@ -19,6 +19,8 @@ from app.api.schemas import (
     PRListItem,
     RepositoryOut,
     ScoreHistoryOut,
+    ScoringConfigOut,
+    ScoringConfigUpdate,
     ScoreSummary,
     SignalOut,
     SignalTrendOut,
@@ -28,6 +30,11 @@ from app.llm.registry import build_narrator
 from app.persistence import orm
 from app.persistence.repository import Repository
 from app.services.backfill_service import backfill_repo
+from app.services.scoring_config import (
+    effective_config,
+    sanitize_thresholds,
+    sanitize_weights,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
@@ -192,6 +199,61 @@ def score_history(
     _require_repo(repository, repo_id)
     points = repository.score_history(repo_id, period_days)
     return ScoreHistoryOut(repo_id=repo_id, period_days=period_days, points=points)
+
+
+def _scoring_config_out(settings: Settings, eff: dict) -> ScoringConfigOut:
+    """Shape an effective-config dict into the API response."""
+    return ScoringConfigOut(
+        health_weights=eff["health_weights"],
+        risk_weights=eff["risk_weights"],
+        severity_penalties=settings.severity_penalties,
+        blocked_cap=settings.blocked_cap,
+        ready_threshold=settings.ready_threshold,
+        thresholds=eff["thresholds"],
+        customized=eff["customized"],
+    )
+
+
+@router.get("/scoring-config", response_model=ScoringConfigOut)
+def get_scoring_config(
+    repository: Repository = Depends(repository_dep),
+    settings: Settings = Depends(settings_dep),
+) -> ScoringConfigOut:
+    """The scoring knobs currently in effect — engine defaults overlaid with the
+    team override. ``customized`` is True when a team override is active. Open read."""
+    return _scoring_config_out(settings, effective_config(settings, repository))
+
+
+@router.put(
+    "/scoring-config", response_model=ScoringConfigOut, dependencies=[Depends(require_auth)]
+)
+def put_scoring_config(
+    body: ScoringConfigUpdate,
+    repository: Repository = Depends(repository_dep),
+    settings: Settings = Depends(settings_dep),
+) -> ScoringConfigOut:
+    """Save the team's scoring override. Weights are normalized to sum 1.0 and
+    thresholds sanitized server-side, so future analyses always score in range.
+    Auth-gated (changing scoring is a write)."""
+    health = sanitize_weights(body.health_weights, settings.health_weights)
+    risk = sanitize_weights(body.risk_weights, settings.risk_weights)
+    thresholds = sanitize_thresholds(body.thresholds, settings)
+    repository.upsert_scoring_config(health, risk, thresholds)
+    repository.session.commit()
+    return _scoring_config_out(settings, effective_config(settings, repository))
+
+
+@router.delete(
+    "/scoring-config", response_model=ScoringConfigOut, dependencies=[Depends(require_auth)]
+)
+def delete_scoring_config(
+    repository: Repository = Depends(repository_dep),
+    settings: Settings = Depends(settings_dep),
+) -> ScoringConfigOut:
+    """Forget the team override so engine defaults apply again. Auth-gated."""
+    repository.clear_scoring_config()
+    repository.session.commit()
+    return _scoring_config_out(settings, effective_config(settings, repository))
 
 
 @router.get(

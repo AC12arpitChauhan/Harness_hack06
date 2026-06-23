@@ -9,6 +9,7 @@ export const keys = {
   prDetail: (repoId: string, prId: string) => ["prDetail", repoId, prId] as const,
   mergeReadiness: (repoId: string, prId: string) => ["mergeReadiness", repoId, prId] as const,
   authorStats: (author: string) => ["authorStats", author] as const,
+  scoringConfig: ["scoringConfig"] as const,
 };
 
 export function useRepositories() {
@@ -64,4 +65,8 @@ export function useAuthorStats(author: string | undefined) {
     queryFn: () => api.authorStats(author!),
     enabled: !!author,
   });
+}
+
+export function useScoringConfig() {
+  return useQuery({ queryKey: keys.scoringConfig, queryFn: api.scoringConfig });
 }
