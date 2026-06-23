@@ -1,4 +1,4 @@
-# PR Health — Engineering Quality Analytics
+# PR Vitals.   | Engineering Quality Analytics
 
 > **The vital signs of how your team ships code.** A deterministic health score for every
 > pull request — across **GitHub** *and* **Harness Code** — with an AI that explains the risk
@@ -9,6 +9,10 @@
 
 **Team Vitals** — Ashmita Poddar · Yuvraj Pratiksh Raghuvanshi · Kushal Gupta · Arpit Chauhan
 Harness Hackathon · Problem 01 — *PR Health & Engineering Quality*
+
+
+<img width="1019" height="727" alt="Screenshot 2026-06-24 at 12 43 47 AM" src="https://github.com/user-attachments/assets/b1d9f92d-4d32-436d-97db-c9b2b1ffa9b8" />
+
 
 ---
 
