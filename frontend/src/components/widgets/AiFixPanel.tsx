@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, ExternalLink, Wrench } from "lucide-react";
+import { CheckCircle2, ExternalLink, RefreshCw, Wrench } from "lucide-react";
 import { useAiFix } from "../../lib/queries";
+import { Markdown } from "../primitives/Markdown";
 import { Skeleton } from "../primitives/States";
 
-/** On-demand "how do I fix this failing build?" panel for the PR drawer. The LLM
- *  call is costly, so it only fires when the user clicks "Suggest a fix". */
+/** On-demand "how do I fix this failing build?" panel for the PR drawer.
+ *  Every click of the button hits the AI fresh (Suggest a fix → Regenerate). */
 export function AiFixPanel({ repoId, prId }: { repoId: string | undefined; prId: string | undefined }) {
   const [requested, setRequested] = useState(false);
   // Reset when the drawer switches to a different PR.
@@ -13,33 +14,37 @@ export function AiFixPanel({ repoId, prId }: { repoId: string | undefined; prId:
   const q = useAiFix(repoId, prId, requested);
   const data = q.data;
 
+  // First click enables the query; every later click forces a fresh AI call.
+  const ask = () => {
+    if (!requested) setRequested(true);
+    else q.refetch();
+  };
+
+  const buttonLabel = q.isFetching ? "Thinking…" : data || q.isError ? "Regenerate" : "Suggest a fix";
+
   return (
     <div className="rounded-2xl border border-hair bg-surface p-5">
       <div className="flex items-center justify-between gap-3">
         <span className="eyebrow flex items-center gap-2">
           <Wrench size={14} className="text-accent" /> AI fix suggestion
         </span>
-        {requested && data?.model && !q.isFetching ? (
-          <span className="mono rounded-full bg-canvas-deep px-2 py-0.5 text-[10px] text-ink-soft">
-            {data.model}
-          </span>
-        ) : (
-          <button
-            onClick={() => {
-              setRequested(true);
-              if (q.isError) q.refetch();
-            }}
-            disabled={q.isFetching}
-            className="rounded-full border border-hair-strong bg-canvas-deep px-3 py-1.5 text-[12px] font-semibold text-ink transition hover:border-ink/30 disabled:opacity-50"
-          >
-            {q.isFetching ? "Thinking…" : q.isError ? "Retry" : "Suggest a fix"}
-          </button>
-        )}
+        <button
+          onClick={ask}
+          disabled={q.isFetching}
+          className="inline-flex items-center gap-1.5 rounded-full border border-hair-strong bg-canvas-deep px-3 py-1.5 text-[12px] font-semibold text-ink transition hover:border-ink/30 disabled:opacity-50"
+        >
+          {q.isFetching ? (
+            <RefreshCw size={12} className="animate-spin" />
+          ) : (
+            data && <RefreshCw size={12} />
+          )}
+          {buttonLabel}
+        </button>
       </div>
 
       {!requested && (
         <p className="mt-2 text-[12.5px] leading-snug text-ink-soft">
-          Ask the model how to get this PR's failing checks to pass.
+          Ask the model how to get this PR's failing checks to pass. Each click queries the AI fresh.
         </p>
       )}
 
@@ -51,7 +56,7 @@ export function AiFixPanel({ repoId, prId }: { repoId: string | undefined; prId:
         </div>
       )}
 
-      {requested && q.isError && (
+      {requested && q.isError && !q.isFetching && (
         <p className="mt-2 text-[12.5px] text-risk">
           Couldn't generate a suggestion. {(q.error as Error)?.message ?? "Try again."}
         </p>
@@ -60,7 +65,7 @@ export function AiFixPanel({ repoId, prId }: { repoId: string | undefined; prId:
       {requested && data && !q.isFetching &&
         (data.has_failures ? (
           <div className="mt-3">
-            <div className="mb-3 flex flex-wrap gap-1.5">
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
               {data.failing_checks.map((c) =>
                 c.url ? (
                   <a
@@ -82,10 +87,13 @@ export function AiFixPanel({ repoId, prId }: { repoId: string | undefined; prId:
                   </span>
                 ),
               )}
+              {data.model && (
+                <span className="mono ml-auto rounded-full bg-canvas-deep px-2 py-0.5 text-[10px] text-ink-soft">
+                  {data.model}
+                </span>
+              )}
             </div>
-            <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink">
-              {data.suggestion}
-            </div>
+            <Markdown text={data.suggestion} />
           </div>
         ) : (
           <div className="mt-3 flex items-center gap-2 rounded-xl bg-health-soft px-3 py-2 text-[13px] font-medium text-health">
