@@ -37,7 +37,7 @@ spec:
             # Public dashboard base for the "AI fix" deep link in Slack alerts (blank = no link).
             - { name: DASHBOARD_URL, value: "" }
             # Harness Code (Gitness) SCM provider — IDs are non-secret config; the token is a secret (below).
-            - { name: HARNESS_API_URL,   value: "https://app.harness.io" }
+            - { name: HARNESS_API_URL,   value: "https://bootcamp-playground.pr2.harness.io" }
             - { name: HARNESS_ACCOUNT_ID, value: "fAp1ee68RWmCJrfsdhwMeA" }
             - { name: HARNESS_ORG_ID,     value: "bootcampjune2026" }
             - { name: HARNESS_PROJECT_ID, value: "hack06" }
