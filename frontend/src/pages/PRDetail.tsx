@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, GitMerge, Lightbulb, Sparkles, Tag, X } from "lucide-react";
+import { ArrowRight, GitMerge, Lightbulb, RefreshCw, Sparkles, Tag, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArcGauge } from "../components/primitives/ArcGauge";
 import { ReadyPill, StateChip } from "../components/primitives/Chip";
 import { ErrorState, Skeleton } from "../components/primitives/States";
-import { usePRDetail, useMergeReadiness } from "../lib/queries";
+import { api, ApiError } from "../lib/api";
+import { keys, usePRDetail, useMergeReadiness, useRepositories } from "../lib/queries";
 import { humanizeSignal, severityColor, SEVERITY_ORDER, scoreFixed } from "../lib/format";
 import type { SignalOut } from "../lib/types";
 import { AiFixPanel } from "../components/widgets/AiFixPanel";
@@ -81,6 +84,33 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
   const mr = useMergeReadiness(repoId, prId);
   const d = detail.data;
 
+  const queryClient = useQueryClient();
+  const repos = useRepositories();
+  const repoName = repos.data?.find((r) => r.id === repoId)?.name;
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [reanalyzeError, setReanalyzeError] = useState<string | null>(null);
+
+  async function onReanalyze() {
+    if (!d || !repoName) return;
+    setReanalyzing(true);
+    setReanalyzeError(null);
+    try {
+      await api.analyzePR(d.provider, repoName, Number(d.provider_pr_id));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.prDetail(repoId ?? "—", prId ?? "—") }),
+        queryClient.invalidateQueries({ queryKey: keys.mergeReadiness(repoId ?? "—", prId ?? "—") }),
+        queryClient.invalidateQueries({ queryKey: ["prs", repoId] }),
+        queryClient.invalidateQueries({ queryKey: ["overview", repoId] }),
+      ]);
+    } catch (e) {
+      setReanalyzeError(
+        e instanceof ApiError ? e.message : "Couldn't re-analyze. Please try again.",
+      );
+    } finally {
+      setReanalyzing(false);
+    }
+  }
+
   const grouped = SEVERITY_ORDER.map((sev) => ({
     sev,
     items: (d?.signals ?? []).filter((s) => s.severity === sev),
@@ -124,14 +154,33 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
                   </>
                 )}
               </div>
-              <button
-                onClick={onClose}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-hair-strong bg-surface text-ink-soft transition hover:bg-canvas-deep"
-                aria-label="Close"
-              >
-                <X size={17} />
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {d && (
+                  <button
+                    onClick={onReanalyze}
+                    disabled={reanalyzing || !repoName}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-hair-strong bg-surface px-3 py-2 text-[12px] font-semibold text-ink transition hover:bg-canvas-deep disabled:opacity-50"
+                    title="Re-run analysis with the current scoring settings"
+                  >
+                    <RefreshCw size={14} className={reanalyzing ? "animate-spin" : ""} />
+                    {reanalyzing ? "Analyzing…" : "Re-analyze"}
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="grid h-9 w-9 place-items-center rounded-full border border-hair-strong bg-surface text-ink-soft transition hover:bg-canvas-deep"
+                  aria-label="Close"
+                >
+                  <X size={17} />
+                </button>
+              </div>
             </div>
+
+            {reanalyzeError && (
+              <div className="border-b border-risk/30 bg-risk/5 px-6 py-2.5 text-[12.5px] text-risk">
+                {reanalyzeError}
+              </div>
+            )}
 
             <div className="min-h-0 flex-1 overflow-auto px-6 py-5">
               {detail.isError ? (
