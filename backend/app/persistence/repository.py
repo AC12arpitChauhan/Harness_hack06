@@ -127,6 +127,37 @@ class Repository:
         self.session.flush()
         return row
 
+    # ---------------------------------------------------- scoring config (global)
+    _SCORING_CONFIG_ID = "global"
+
+    def get_scoring_config(self) -> orm.ScoringConfig | None:
+        """The single global scoring override, or None if the team hasn't set one."""
+        return self.session.get(orm.ScoringConfig, self._SCORING_CONFIG_ID)
+
+    def upsert_scoring_config(
+        self,
+        health_weights: dict[str, float],
+        risk_weights: dict[str, float],
+        thresholds: dict[str, float],
+    ) -> orm.ScoringConfig:
+        """Create or replace the global override. Caller commits."""
+        row = self.session.get(orm.ScoringConfig, self._SCORING_CONFIG_ID)
+        if row is None:
+            row = orm.ScoringConfig(id=self._SCORING_CONFIG_ID)
+            self.session.add(row)
+        row.health_weights_json = dict(health_weights)
+        row.risk_weights_json = dict(risk_weights)
+        row.thresholds_json = dict(thresholds)
+        self.session.flush()
+        return row
+
+    def clear_scoring_config(self) -> None:
+        """Forget the override so engine defaults apply again. Caller commits."""
+        self.session.execute(
+            delete(orm.ScoringConfig).where(orm.ScoringConfig.id == self._SCORING_CONFIG_ID)
+        )
+        self.session.flush()
+
     def complete_run(self, run: orm.AnalysisRun) -> None:
         run.status = "completed"
         run.completed_at = _naive(datetime.now(timezone.utc))

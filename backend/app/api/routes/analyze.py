@@ -21,6 +21,7 @@ from app.services.analysis_service import (
     run_analysis,
     run_post_analysis,
 )
+from app.services.scoring_config import effective_config
 
 router = APIRouter(prefix="/api/v1", tags=["analyze"])
 
@@ -37,14 +38,16 @@ def analyze(
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
+    # Apply the team's scoring override (if any) to this analysis.
+    config = effective_config(settings, repository)
     try:
         result = run_analysis(
             body.repo,
             body.pr_number,
             provider=provider,
             repository=repository,
-            analyzers=build_analyzers(settings),
-            engine=build_engine(settings),
+            analyzers=build_analyzers(settings, config),
+            engine=build_engine(settings, config),
             repo_url=f"https://github.com/{body.repo}" if body.provider == "github" else "",
         )
     except httpx.HTTPStatusError as exc:

@@ -24,6 +24,7 @@ from app.persistence.repository import Repository
 from app.providers.base import SCMProvider
 from app.providers.registry import get_provider
 from app.scoring.engine import ScoringEngine
+from app.services.scoring_config import default_config
 from app.services.writeback_service import do_writeback
 
 logger = logging.getLogger("pr_health.analysis")
@@ -39,24 +40,31 @@ class AnalysisResult:
     signals: list[AnalysisSignal]
 
 
-def build_analyzers(settings: Settings) -> list[Analyzer]:
-    """Assemble the enabled analyzers from settings (one place, used by route + backfill)."""
+def build_analyzers(settings: Settings, config: dict | None = None) -> list[Analyzer]:
+    """Assemble the enabled analyzers (one place, used by route + backfill).
+
+    ``config`` is an effective scoring config (defaults overlaid with the team
+    override); when omitted, the documented defaults apply.
+    """
+    t = (config or default_config(settings))["thresholds"]
     return enabled_analyzers(
-        merge_fast_minutes=settings.merge_fast_minutes,
-        merge_slow_minutes=settings.merge_slow_minutes,
-        change_medium_lines=settings.change_medium_lines,
-        change_high_lines=settings.change_high_lines,
-        change_critical_lines=settings.change_critical_lines,
-        change_high_files=settings.change_high_files,
-        review_trivial_lines=settings.review_trivial_lines,
-        review_thin_reviewers=settings.review_thin_reviewers,
+        merge_fast_minutes=int(t["merge_fast_minutes"]),
+        merge_slow_minutes=int(t["merge_slow_minutes"]),
+        change_medium_lines=int(t["change_medium_lines"]),
+        change_high_lines=int(t["change_high_lines"]),
+        change_critical_lines=int(t["change_critical_lines"]),
+        change_high_files=int(t["change_high_files"]),
+        review_trivial_lines=int(t["review_trivial_lines"]),
+        review_thin_reviewers=int(t["review_thin_reviewers"]),
     )
 
 
-def build_engine(settings: Settings) -> ScoringEngine:
+def build_engine(settings: Settings, config: dict | None = None) -> ScoringEngine:
+    """Build the scoring engine from an effective config (team override or defaults)."""
+    c = config or default_config(settings)
     return ScoringEngine(
-        health_weights=settings.health_weights,
-        risk_weights=settings.risk_weights,
+        health_weights=c["health_weights"],
+        risk_weights=c["risk_weights"],
         blocked_cap=settings.blocked_cap,
     )
 

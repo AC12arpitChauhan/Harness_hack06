@@ -6,11 +6,17 @@ import type {
   PRListItem,
   RepositoryOut,
   ScoreHistoryOut,
+  ScoringConfigOut,
+  ScoringConfigUpdate,
 } from "./types";
 
 const RAW_BASE = import.meta.env.VITE_API_BASE ?? "http://136.109.192.193:8000";
 export const API_BASE = RAW_BASE.replace(/\/+$/, "");
 const PREFIX = `${API_BASE}/api/v1`;
+
+// Bearer token for write routes (scoring-config). Set VITE_ADMIN_TOKEN to your
+// backend's FASTAPI_AUTH_TOKEN. Empty by default → writes return a clear 401.
+const ADMIN_TOKEN = (import.meta.env.VITE_ADMIN_TOKEN ?? "").trim();
 
 export class ApiError extends Error {
   constructor(
@@ -54,6 +60,41 @@ async function get<T>(path: string, params?: Record<string, string | number | un
   return (await resp.json()) as T;
 }
 
+async function send<T>(method: "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
+  const url = new URL(`${PREFIX}${path}`, window.location.origin);
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (ADMIN_TOKEN) headers.Authorization = `Bearer ${ADMIN_TOKEN}`;
+  let resp: Response;
+  try {
+    resp = await fetch(url.toString(), {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    throw new ApiError(
+      `Could not reach the API at ${API_BASE}. Is the backend running and CORS enabled?`,
+      0,
+    );
+  }
+  if (!resp.ok) {
+    let detail = resp.statusText;
+    try {
+      const b = await resp.json();
+      if (b?.detail) detail = typeof b.detail === "string" ? b.detail : JSON.stringify(b.detail);
+    } catch {
+      /* ignore */
+    }
+    if (resp.status === 401) {
+      detail =
+        "Saving needs an admin token. Set VITE_ADMIN_TOKEN (frontend env) to your backend's FASTAPI_AUTH_TOKEN.";
+    }
+    throw new ApiError(detail || `Request failed (${resp.status})`, resp.status);
+  }
+  return (await resp.json()) as T;
+}
+
 export const api = {
   repositories: () => get<RepositoryOut[]>("/repositories"),
 
@@ -75,4 +116,11 @@ export const api = {
 
   authorStats: (author: string) =>
     get<AuthorStatsOut>(`/authors/${encodeURIComponent(author)}/pr_stats`),
+
+  scoringConfig: () => get<ScoringConfigOut>("/scoring-config"),
+
+  saveScoringConfig: (body: ScoringConfigUpdate) =>
+    send<ScoringConfigOut>("PUT", "/scoring-config", body),
+
+  resetScoringConfig: () => send<ScoringConfigOut>("DELETE", "/scoring-config"),
 };

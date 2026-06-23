@@ -1,4 +1,5 @@
-import { Activity } from "lucide-react";
+import { Activity, SlidersHorizontal } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { RepositoryOut } from "../../lib/types";
 import { RepoSwitcher } from "./RepoSwitcher";
 import { HealthNumber } from "../primitives/Chip";
@@ -41,6 +42,14 @@ export function TopBar({ repos, selectedId, onSelect, globalHealth, isFetching }
             <span className="eyebrow">Repo Health</span>
             <HealthNumber value={globalHealth} size={16} />
           </div>
+          <Link
+            to="/settings"
+            className="grid h-9 w-9 place-items-center rounded-full border border-hair-strong bg-surface text-ink-mute transition-colors hover:text-ink"
+            aria-label="Scoring settings"
+            title="Scoring settings"
+          >
+            <SlidersHorizontal size={16} />
+          </Link>
         </div>
       </div>
     </header>
