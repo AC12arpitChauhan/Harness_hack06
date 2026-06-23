@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PR Health — Keynote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#16171a; --ink-2:#0e0f12;
+    --cream:#f1ede1; --paper:#faf9f5;
+    --soft:#9aa0ab;
+    --green:#1f9d6b; --coral:#e5484d; --amber:#e0892a; --blue:#2f7ff0; --mustard:#c99700;
+    --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+    --sans:"Geist",ui-sans-serif,system-ui,-apple-system,sans-serif;
+    --mono:"Geist Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:var(--sans); background:var(--ink-2); color:var(--ink);
+    overflow:hidden; -webkit-font-smoothing:antialiased;
+  }
+  /* ---- stage ---- */
+  #stage{position:fixed; inset:0;}
+  .slide{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    justify-content:center; padding:7vmin 9vmin;
+    opacity:0; visibility:hidden; transition:opacity .55s ease;
+  }
+  .slide.active{opacity:1; visibility:visible;}
+  .slide.ink{background:var(--ink); color:var(--cream);}
+  .slide.ink-2{background:radial-gradient(120% 120% at 80% 0%, #1b1d22 0%, var(--ink-2) 70%); color:var(--cream);}
+  .slide.cream{background:var(--cream); color:var(--ink);}
+  .slide.paper{background:var(--paper); color:var(--ink);}
+  .slide.brand{background:var(--ink); color:var(--cream);}
+
+  /* ---- type ---- */
+  .eyebrow{font-size:clamp(11px,1.3vmin,15px); font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--soft);}
+  .ink .eyebrow,.ink-2 .eyebrow,.brand .eyebrow{color:#7e8794;}
+  .serif{font-family:var(--serif); font-weight:400; letter-spacing:-.012em; line-height:.98;}
+  .mono{font-family:var(--mono);}
+  .display{font-family:var(--sans); font-weight:800; letter-spacing:-.03em; line-height:.92;}
+  .huge{font-size:clamp(48px,13vmin,190px);}
+  .big{font-size:clamp(40px,8.6vmin,120px);}
+  .mid{font-size:clamp(30px,5.4vmin,76px);}
+  .lede{font-size:clamp(18px,2.7vmin,34px); line-height:1.28; font-weight:400; color:var(--ink);}
+  .ink .lede,.ink-2 .lede,.brand .lede{color:#c9cdd4;}
+  .muted{color:var(--soft);}
+  .green{color:var(--green);} .coral{color:var(--coral);} .amber{color:var(--amber);} .blue{color:var(--blue);} .mustard{color:var(--mustard);}
+  .tnum{font-variant-numeric:tabular-nums;}
+
+  /* reveal */
+  [data-reveal]{opacity:0; transform:translateY(26px); transition:opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1);}
+  .active [data-reveal]{opacity:1; transform:none;}
+
+  .stack>*+*{margin-top:3.2vmin;}
+  .row{display:flex; gap:5vmin; align-items:center;}
+  .between{justify-content:space-between;}
+  .grow{flex:1;}
+  .pill{display:inline-flex; align-items:center; gap:.6em; padding:.5em 1.1em; border-radius:999px; font-size:clamp(13px,1.7vmin,20px); font-weight:600;}
+  .pill.on-ink{background:rgba(255,255,255,.08); color:#e8eaee;}
+  .tagline{font-size:clamp(20px,3.4vmin,46px); line-height:1.12;}
+  .kicker{font-size:clamp(15px,2vmin,24px); font-weight:600; letter-spacing:.02em;}
+
+  /* signal list */
+  .signals{display:flex; flex-direction:column; gap:1.4vmin;}
+  .signals .s{font-family:var(--sans); font-weight:700; letter-spacing:-.02em; font-size:clamp(22px,4.4vmin,58px); line-height:1.04; color:#3a3d44;}
+  .ink .signals .s,.ink-2 .signals .s{color:#5a606c;}
+  .signals .s b{color:var(--coral); font-weight:700;}
+  .signals .s.lit{color:var(--cream);}
+
+  /* metric chips */
+  .metrics{display:flex; gap:2.4vmin; flex-wrap:wrap;}
+  .metric{display:flex; flex-direction:column; gap:.4vmin;}
+  .metric .n{font-weight:800; letter-spacing:-.03em; font-size:clamp(34px,7vmin,96px); line-height:1;}
+  .metric .l{font-size:clamp(12px,1.5vmin,17px); letter-spacing:.12em; text-transform:uppercase; color:var(--soft);}
+
+  /* steps / formula */
+  .flow{display:flex; align-items:center; gap:1.6vmin; flex-wrap:wrap; font-weight:700; letter-spacing:-.01em; font-size:clamp(16px,2.5vmin,30px);}
+  .node{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); padding:.55em .9em; border-radius:14px;}
+  .cream .node,.paper .node{background:#fff; border-color:#e3ddcc;}
+  .arrow{color:var(--soft);}
+  .penalties{display:flex; gap:1.4vmin; flex-wrap:wrap; font-family:var(--mono); font-size:clamp(13px,1.8vmin,20px);}
+  .penalties span{padding:.35em .7em; border-radius:10px; background:rgba(255,255,255,.06);}
+  .cream .penalties span,.paper .penalties span{background:#fff; border:1px solid #e7e1d1;}
+
+  .cols{display:grid; grid-template-columns:1fr 1fr; gap:6vmin;}
+  .cols3{display:grid; grid-template-columns:repeat(3,1fr); gap:4vmin;}
+  .feat .ttl{font-family:var(--serif); font-size:clamp(24px,4vmin,52px); line-height:1.02;}
+  .feat .sub{margin-top:1.2vmin; font-size:clamp(14px,1.9vmin,22px); color:var(--soft); line-height:1.35;}
+
+  /* avatar */
+  .scene{display:flex; align-items:center; gap:6vmin;}
+  .avatar{width:clamp(150px,26vmin,340px); flex:none;}
+  .avatar-svg{width:100%; height:auto; display:block; animation:float 6s ease-in-out infinite;}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.2%)}}
+  .sweat{animation:drip 2.4s ease-in-out infinite;}
+  @keyframes drip{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(22px);opacity:0}}
+  .char--stressed .avatar-svg{animation:fret 3.6s ease-in-out infinite;}
+  @keyframes fret{0%,100%{transform:rotate(0)}25%{transform:rotate(-1.2deg)}75%{transform:rotate(1.2deg)}}
+  .char--happy .avatar-svg{animation:bob 2.8s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4%)}}
+
+  /* flying PRs (problem slide) */
+  .flyfield{position:absolute; inset:0; overflow:hidden; pointer-events:none;}
+  .pr{position:absolute; font-family:var(--mono); font-size:clamp(11px,1.5vmin,18px); color:#3b3e45; white-space:nowrap; opacity:0;}
+  .active .pr{animation:fly linear infinite;}
+  @keyframes fly{0%{transform:translateX(8vw);opacity:0}8%{opacity:.85}92%{opacity:.85}100%{transform:translateX(-112vw);opacity:0}}
+
+  /* chrome */
+  .brandmark{position:fixed; top:3.4vmin; left:4vmin; display:flex; align-items:center; gap:.6em; z-index:20; font-weight:700; letter-spacing:-.01em; font-size:14px; color:var(--soft); opacity:.0; transition:opacity .4s;}
+  body.chrome .brandmark{opacity:.9;}
+  .dot{width:18px;height:18px;border-radius:6px;background:var(--green);display:grid;place-items:center;}
+  .dot svg{width:11px;height:11px;}
+  #counter{position:fixed; bottom:3.2vmin; right:4vmin; z-index:20; font-family:var(--mono); font-size:12px; color:var(--soft); opacity:0; transition:opacity .4s;}
+  body.chrome #counter{opacity:.8;}
+  #bar{position:fixed; left:0; bottom:0; height:3px; background:var(--green); width:0; z-index:30; transition:width .45s cubic-bezier(.16,1,.3,1);}
+  #notes{position:fixed; left:0; right:0; bottom:0; background:rgba(8,9,11,.94); color:#d6d9de; padding:18px 24px; font-size:15px; line-height:1.45; transform:translateY(110%); transition:transform .35s ease; z-index:40; border-top:2px solid var(--green);}
+  #notes.show{transform:none;}
+  #notes b{color:#fff;}
+  .hint{position:fixed; bottom:3.2vmin; left:4vmin; z-index:20; font-size:12px; color:var(--soft); opacity:0; transition:opacity .4s;}
+  body.chrome .hint{opacity:.55;}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;}}
+</style>
+</head>
+<body>
+<div class="brandmark"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg></span> PR&nbsp;Health</div>
+<div id="counter">01</div>
+<div class="hint">→ / space · F fullscreen · N notes</div>
+<div id="bar"></div>
+<div id="stage">
+
+  <!-- 0 · COLD OPEN / TITLE (group + names) -->
+  <section class="slide ink-2" data-notes="<b>Title slide — required: group name + all participant names.</b> Per the brief: don't START on slides — ideally show the live dashboard ~20s first, THEN cut here. One line: 'These are the vital signs of how a team ships code.'">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>Harness Hackathon · 01 · PR Health &amp; Engineering Quality</div>
+      <h1 class="display huge" data-reveal>PR&nbsp;Health.</h1>
+      <p class="tagline serif" data-reveal style="max-width:18ch; color:#cfd3da;">The vital signs of how your team ships code.</p>
+      <div class="row between" data-reveal style="margin-top:3vmin; align-items:flex-end; gap:4vmin; flex-wrap:wrap;">
+        <div>
+          <div class="eyebrow" style="margin-bottom:.6vmin;">Group</div>
+          <div class="display" style="font-size:clamp(22px,3.6vmin,46px); letter-spacing:-.02em;">Vitals</div>
+        </div>
+        <div style="text-align:right; color:#aeb4bf; font-size:clamp(13px,1.7vmin,20px); line-height:1.6;">
+          Ashmita&nbsp;Poddar&nbsp;&nbsp;·&nbsp;&nbsp;Yuvraj&nbsp;Pratiksh&nbsp;Raghuvanshi<br/>
+          Kushal&nbsp;Gupta&nbsp;&nbsp;·&nbsp;&nbsp;Arpit&nbsp;Chauhan
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 1 · THE NUMBER -->
+  <section class="slide cream" data-notes="<b>The hook (≈20s).</b> Say the numbers slowly. 50 engineers, 100 PRs a week. Then the kicker: nobody is actually reading what those PRs are telling them.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>Every week, at one team</div>
+      <h2 class="display huge tnum" data-reveal>100<span class="muted"> PRs</span></h2>
+      <p class="mid serif" data-reveal style="max-width:20ch;">50 engineers. 1 manager.
+        <span class="coral">Zero visibility into the risk.</span></p>
+    </div>
+  </section>
+
+  <!-- 2 · MEET ARJUN -->
+  <section class="slide paper" data-notes="<b>Problem — for whom (start of the 2-min problem block).</b> Introduce the human. Arjun is the engineering manager. He's not lazy — he's blind. The data exists; he can't read it.">
+    <div class="scene">
+      <div class="char char--stressed avatar" data-mood="stressed" data-reveal></div>
+      <div class="stack grow">
+        <div class="eyebrow" data-reveal>The person this is broken for</div>
+        <h2 class="display big" data-reveal>Meet&nbsp;Arjun.</h2>
+        <p class="lede" data-reveal style="max-width:24ch;">Engineering Manager. 50 developers reporting in. Every Monday, a new wall of merged pull requests — and no way to tell the healthy ones from the time bombs.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · THE FLOOD -->
+  <section class="slide ink" data-notes="<b>Problem — what's broken (≈40s).</b> These are the brief's 'signals worth exploring'. Read 3 of them. The point: each one is invisible today until it causes an incident.">
+    <div class="flyfield" aria-hidden="true">
+      <div class="pr" style="top:14%; animation-duration:13s; animation-delay:0s;">#4821 merged · 0 reviews · CI ✗</div>
+      <div class="pr" style="top:30%; animation-duration:16s; animation-delay:2s;">#4822 merged in 3m · no Jira</div>
+      <div class="pr" style="top:48%; animation-duration:11s; animation-delay:1s;">#4823 +1,240 / −60 · 1 reviewer</div>
+      <div class="pr" style="top:64%; animation-duration:15s; animation-delay:3.5s;">#4824 hotfix · reverts #4810</div>
+      <div class="pr" style="top:80%; animation-duration:12s; animation-delay:.7s;">#4825 merged · checks pending</div>
+    </div>
+    <div class="stack" style="position:relative;">
+      <div class="eyebrow" data-reveal>What's hiding in 100 PRs</div>
+      <div class="signals">
+        <div class="s lit" data-reveal>Rushed merges — <b>shipped in minutes</b></div>
+        <div class="s lit" data-reveal>Merged despite a <b>failing build</b></div>
+        <div class="s lit" data-reveal>Big changes, <b>one reviewer</b></div>
+        <div class="s" data-reveal>No linked ticket · high rework · hotfix-after-merge</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · THE BLIND SPOT -->
+  <section class="slide ink-2" data-notes="<b>Problem — the cost (≈30s). The line that lands.</b> The signal is ALREADY in Harness SCM data. The failure isn't missing data — it's that nobody reads it systematically. So it surfaces as an incident, not a dashboard.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>The real problem</div>
+      <h2 class="display mid" data-reveal style="max-width:20ch;">The signal is already in the data.</h2>
+      <p class="tagline serif" data-reveal style="max-width:22ch; color:#cfd3da;">Nobody's reading it —
+        <span class="coral">until it's an incident.</span></p>
+    </div>
+  </section>
+
+  <!-- 5 · THE TURN -->
+  <section class="slide cream" data-notes="<b>Bridge into the solution.</b> One question, then reveal the product. Pause before clicking to the next slide.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>So we asked</div>
+      <h2 class="serif" data-reveal style="font-size:clamp(34px,7.4vmin,104px); max-width:17ch;">What if every pull request told you how healthy it was?</h2>
+    </div>
+  </section>
+
+  <!-- 6 · PRODUCT REVEAL -->
+  <section class="slide brand" data-notes="<b>The product (the name + promise).</b> This is the title card for your solution. Then immediately go LIVE (next slide is just a cue).">
+    <div class="stack">
+      <div class="row" data-reveal>
+        <span class="dot" style="width:46px;height:46px;border-radius:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:26px;"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg></span>
+        <span class="display" style="font-size:clamp(34px,6.4vmin,86px);">PR&nbsp;Health</span>
+      </div>
+      <h2 class="serif" data-reveal style="font-size:clamp(30px,6.2vmin,88px); max-width:18ch;">Read the signal. <span class="green">Before it becomes an incident.</span></h2>
+      <p class="lede" data-reveal style="max-width:40ch;">A deterministic health score for every PR — across GitHub <em>and</em> Harness Code — with an AI that explains the risk and tells you how to fix the failing build.</p>
+    </div>
+  </section>
+
+  <!-- 7 · LIVE -->
+  <section class="slide ink" data-notes="<b>SOLUTION — shown live (this is the 5-minute heart).</b> SWITCH TO THE DASHBOARD NOW. Walk: (1) the PR Health Index + repos that need attention, (2) open a blocked PR, (3) the AI fix suggestion, (4) GitHub + Harness Code side by side. Come back to slides only for 'how it works'.">
+    <div class="stack" style="align-items:center; text-align:center;">
+      <div class="pill on-ink" data-reveal>▶ &nbsp;Live</div>
+      <h2 class="display big" data-reveal>Let's not talk about it.</h2>
+      <p class="tagline serif" data-reveal style="color:#cfd3da;">Let's open the dashboard.</p>
+    </div>
+  </section>
+
+  <!-- 8 · WHAT IT ANSWERS -->
+  <section class="slide paper" data-notes="<b>Solution framing (use while the dashboard is up, or as a recap).</b> Map directly to the brief's three questions — judges wrote these, so name them back.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>Three questions leadership actually asks</div>
+      <div class="cols3" style="margin-top:1vmin;">
+        <div class="feat" data-reveal><div class="ttl">How healthy are our PR practices?</div><div class="sub">One <b class="green">PR Health Index</b> per repo, scored deterministically from real signals.</div></div>
+        <div class="feat" data-reveal><div class="ttl">Which repos need attention now?</div><div class="sub">A <b class="coral">ranked watch-list</b> by weighted build-violation rate — anti-noise.</div></div>
+        <div class="feat" data-reveal><div class="ttl">What behaviours drive quality?</div><div class="sub"><b class="amber">Revert correlation</b> — which good practices lead to fewer reverts.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 · THE AI FIX -->
+  <section class="slide ink-2" data-notes="<b>The 'wow' (≈40s, ideally shown live).</b> When a PR's build fails, we don't just flag it — Claude reads the failing checks and writes the fix. Distinct from the health narrative. Click 'Suggest a fix' live.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>And when the build fails</div>
+      <h2 class="display mid" data-reveal style="max-width:18ch;">It doesn't just flag it. <span class="green">It fixes it.</span></h2>
+      <p class="lede" data-reveal style="max-width:38ch;">Claude reads the failing checks and writes concrete fix steps — right inside the PR view and the GitHub / Harness comment.</p>
+    </div>
+  </section>
+
+  <!-- 10 · RESOLUTION -->
+  <section class="slide cream" data-notes="<b>Close the story.</b> Back to Arjun — now calm. He sees the one repo bleeding, fixes the failing build, ships safer. The human payoff before the technical section.">
+    <div class="scene">
+      <div class="stack grow">
+        <div class="eyebrow" data-reveal>Monday, six weeks later</div>
+        <h2 class="display big" data-reveal>Arjun, unblocked.</h2>
+        <p class="lede" data-reveal style="max-width:25ch;">He opens one tab. The watch-list shows the single repo that's bleeding. He reads the AI fix, unblocks the failing build, and ships — before it ever became an incident.</p>
+      </div>
+      <div class="char char--happy avatar" data-mood="happy" data-reveal></div>
+    </div>
+  </section>
+
+  <!-- 11 · HOW IT WORKS (key decision) -->
+  <section class="slide ink" data-notes="<b>HOW IT WORKS — the key decision (the 2-min block). Lead with THIS line.</b> The score is deterministic — same inputs, same number, always. The LLM only narrates and suggests fixes; it can never move a score. That's the trust story for leadership.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>The one decision that matters</div>
+      <h2 class="display mid" data-reveal style="max-width:20ch;">The score is deterministic. <span class="green">The AI never touches it.</span></h2>
+      <div class="flow" data-reveal style="margin-top:1vmin;">
+        <span class="node">signals</span><span class="arrow">→</span>
+        <span class="node">severity penalty</span><span class="arrow">→</span>
+        <span class="node">weighted sub-scores</span><span class="arrow">→</span>
+        <span class="node green">Health · Risk · Readiness</span>
+      </div>
+      <div class="penalties" data-reveal>
+        <span>INFO 0</span><span>LOW 5</span><span>MED 15</span><span>HIGH 30</span><span class="coral" style="color:#ff9a9a;">CRIT 50</span>
+        <span class="muted">· hard blockers cap readiness at 15</span>
+      </div>
+      <p class="lede" data-reveal style="max-width:46ch;">Five analyzers — CI status, merge speed, change size, review quality, Jira linkage. Pure functions. The LLM reads the result and writes prose; it has no vote.</p>
+    </div>
+  </section>
+
+  <!-- 12 · ARCHITECTURE -->
+  <section class="slide ink-2" data-notes="<b>How it works — provider-agnostic (≈40s).</b> The brain operates on a normalized PR. GitHub and Harness Code differ ONLY in a thin adapter — everything downstream is provider-blind. That's why the same product covers both, and why a Harness PR and a GitHub PR sit on one dashboard.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>Built to be provider-blind</div>
+      <h2 class="display mid" data-reveal style="max-width:22ch;">One brain. <span class="blue">GitHub &amp; Harness Code</span> behind one adapter.</h2>
+      <div class="metrics" data-reveal style="margin-top:1vmin;">
+        <div class="metric"><span class="n green">5</span><span class="l">deterministic analyzers</span></div>
+        <div class="metric"><span class="n">2</span><span class="l">SCM providers, 1 port</span></div>
+        <div class="metric"><span class="n blue">80</span><span class="l">tests · SQLite + Postgres</span></div>
+        <div class="metric"><span class="n amber">K8s</span><span class="l">shipped via Harness CI/CD</span></div>
+      </div>
+      <p class="lede" data-reveal style="max-width:50ch;">FastAPI + Postgres core · React/TypeScript dashboard · Claude (Bedrock or Anthropic) for narration &amp; fixes · Slack alerts on build failure · deployed to Kubernetes by a Harness pipeline that triggers on every PR.</p>
+    </div>
+  </section>
+
+  <!-- 12b · ARCHITECTURE DIAGRAM -->
+  <section class="slide ink" data-notes="<b>Architecture (for 'how it works' / Q&amp;A).</b> One line: sources are normalized by a thin adapter; the deterministic core scores; Claude hangs off the side and only READS the score; everything persists to Postgres, serves via FastAPI, and ships to Kubernetes through a Harness pipeline that fires on every PR.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>How it fits together</div>
+      <div data-reveal style="margin-top:1.5vmin;">
+        <svg viewBox="0 0 1300 560" style="width:100%; height:auto; max-height:72vh;" font-family="Geist, system-ui, sans-serif">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="#6b7280"/>
+            </marker>
+          </defs>
+
+          <!-- ingress banner -->
+          <rect x="330" y="22" width="640" height="46" rx="23" fill="none" stroke="#383b42"/>
+          <text x="650" y="51" text-anchor="middle" font-family="Geist Mono, monospace" font-size="15" fill="#cfd3da">PR opened  →  Harness trigger  →  pipeline  →  POST /analyze</text>
+
+          <!-- spine arrows -->
+          <line x1="244" y1="200" x2="300" y2="200" stroke="#6b7280" stroke-width="2" marker-end="url(#ah)"/>
+          <line x1="466" y1="200" x2="522" y2="200" stroke="#6b7280" stroke-width="2" marker-end="url(#ah)"/>
+          <line x1="778" y1="200" x2="834" y2="200" stroke="#6b7280" stroke-width="2" marker-end="url(#ah)"/>
+          <line x1="1020" y1="200" x2="1076" y2="200" stroke="#6b7280" stroke-width="2" marker-end="url(#ah)"/>
+
+          <!-- Sources -->
+          <rect x="40" y="150" width="204" height="100" rx="16" fill="#1c1e23" stroke="#383b42"/>
+          <text x="142" y="174" text-anchor="middle" font-size="11" letter-spacing="2" fill="#9aa0ab">SCM SOURCES</text>
+          <text x="142" y="205" text-anchor="middle" font-size="22" font-weight="700" fill="#2f7ff0">GitHub</text>
+          <text x="142" y="233" text-anchor="middle" font-size="22" font-weight="700" fill="#2f7ff0">Harness Code</text>
+
+          <!-- Adapter -->
+          <rect x="302" y="150" width="160" height="100" rx="16" fill="#1c1e23" stroke="#383b42"/>
+          <text x="382" y="200" text-anchor="middle" font-size="22" font-weight="700" fill="#e8eaee">Adapter</text>
+          <text x="382" y="226" text-anchor="middle" font-size="13" fill="#9aa0ab">normalize → one PR</text>
+
+          <!-- Deterministic core (hero) -->
+          <rect x="524" y="134" width="254" height="132" rx="18" fill="#13241d" stroke="#1f9d6b" stroke-width="2"/>
+          <text x="651" y="162" text-anchor="middle" font-size="11" letter-spacing="2" font-weight="700" fill="#1f9d6b">NO LLM HERE</text>
+          <text x="651" y="190" text-anchor="middle" font-size="22" font-weight="700" fill="#e8eaee">Deterministic core</text>
+          <text x="651" y="216" text-anchor="middle" font-size="14" fill="#cfe9dd">5 analyzers → scoring engine</text>
+          <text x="651" y="240" text-anchor="middle" font-size="13" fill="#9aa0ab">Health · Risk · Readiness</text>
+
+          <!-- API + DB -->
+          <rect x="836" y="150" width="184" height="100" rx="16" fill="#1c1e23" stroke="#383b42"/>
+          <text x="928" y="200" text-anchor="middle" font-size="20" font-weight="700" fill="#e8eaee">FastAPI + Postgres</text>
+          <text x="928" y="226" text-anchor="middle" font-size="13" fill="#9aa0ab">scores persisted</text>
+
+          <!-- Surfaces -->
+          <rect x="1078" y="150" width="182" height="100" rx="16" fill="#1c1e23" stroke="#383b42"/>
+          <text x="1169" y="174" text-anchor="middle" font-size="11" letter-spacing="2" fill="#9aa0ab">SURFACES</text>
+          <text x="1169" y="199" text-anchor="middle" font-size="16" font-weight="600" fill="#e8eaee">Dashboard</text>
+          <text x="1169" y="221" text-anchor="middle" font-size="16" font-weight="600" fill="#e8eaee">PR write-back</text>
+          <text x="1169" y="243" text-anchor="middle" font-size="16" font-weight="600" fill="#e8eaee">Slack alert</text>
+
+          <!-- Claude side module -->
+          <line x1="651" y1="266" x2="651" y2="330" stroke="#e0892a" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#ah)"/>
+          <text x="668" y="293" font-size="13" fill="#e0892a">reads the score</text>
+          <text x="668" y="311" font-size="13" fill="#e0892a">— never moves it</text>
+          <rect x="430" y="330" width="320" height="92" rx="16" fill="#271d10" stroke="#e0892a" stroke-width="2"/>
+          <text x="590" y="368" text-anchor="middle" font-size="20" font-weight="700" fill="#e0892a">Claude · Bedrock / Anthropic</text>
+          <text x="590" y="396" text-anchor="middle" font-size="14" fill="#caa97e">narrative + AI fix suggestion</text>
+
+          <!-- footer -->
+          <text x="650" y="500" text-anchor="middle" font-family="Geist Mono, monospace" font-size="14" fill="#7e8794">Runs on Kubernetes · shipped by a Harness CI/CD pipeline</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 · WHAT'S NEXT -->
+  <section class="slide paper" data-notes="<b>What comes next (≈1 min).</b> If we had another week: feed the real failing build log to the AI for line-level fixes; trend alerts ('this repo is degrading'); team rollups. Keep it to three.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>One more week</div>
+      <div class="cols3" style="margin-top:1vmin;">
+        <div class="feat" data-reveal><div class="ttl">Log-aware fixes</div><div class="sub">Feed the real failing step log to Claude → line-level fixes, not generic steps.</div></div>
+        <div class="feat" data-reveal><div class="ttl">Trend alerts</div><div class="sub">"This repo is degrading" — Slack before it's a watch-list entry.</div></div>
+        <div class="feat" data-reveal><div class="ttl">Team rollups</div><div class="sub">Health by team, not just repo — the org-wide view leadership wants.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14 · CLOSE -->
+  <section class="slide brand" data-notes="<b>Close.</b> Land the tagline, then stop. Invite Q&A. Total target: Problem 2 · Solution-live 5 · How 2 · Next 1.">
+    <div class="stack">
+      <div class="eyebrow" data-reveal>PR Health · Engineering Quality</div>
+      <h2 class="serif" data-reveal style="font-size:clamp(34px,7.6vmin,108px); max-width:15ch;">Stop guessing. <span class="green">Start reading the signal.</span></h2>
+      <p class="lede" data-reveal style="max-width:40ch;">A health score for every PR — and the AI to act on it. Across GitHub and Harness Code.</p>
+    </div>
+  </section>
+
+</div>
+
+<div id="notes"></div>
+
+<script>
+(function(){
+  const slides=[...document.querySelectorAll('.slide')];
+  const counter=document.getElementById('counter');
+  const bar=document.getElementById('bar');
+  const notes=document.getElementById('notes');
+  let i=0, notesOn=false;
+
+  function avatar(mood){
+    const skin="#f0c4a0", hair="#16171a", shirt="#2f7ff0";
+    let brows, eyes, mouth, sweat="";
+    if(mood==="stressed"){
+      brows=`<path d="M96 99 L114 105" stroke="${hair}" stroke-width="4" stroke-linecap="round"/><path d="M144 99 L126 105" stroke="${hair}" stroke-width="4" stroke-linecap="round"/>`;
+      eyes=`<circle cx="106" cy="114" r="4.5" fill="${hair}"/><circle cx="134" cy="114" r="4.5" fill="${hair}"/>`;
+      mouth=`<path d="M108 142 Q120 134 132 142" stroke="${hair}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+      sweat=`<path class="sweat" d="M150 100 q-7 11 0 18 q7 -7 0 -18 Z" fill="#6cc4ff"/>`;
+    } else if(mood==="happy"){
+      brows=`<path d="M98 96 Q106 92 114 96" stroke="${hair}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M126 96 Q134 92 142 96" stroke="${hair}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+      eyes=`<path d="M100 114 Q106 108 112 114" stroke="${hair}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M128 114 Q134 108 140 114" stroke="${hair}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+      mouth=`<path d="M102 134 Q120 156 138 134" stroke="${hair}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+    } else {
+      brows=`<path d="M98 100 L114 100" stroke="${hair}" stroke-width="4" stroke-linecap="round"/><path d="M126 100 L142 100" stroke="${hair}" stroke-width="4" stroke-linecap="round"/>`;
+      eyes=`<circle cx="106" cy="114" r="4.5" fill="${hair}"/><circle cx="134" cy="114" r="4.5" fill="${hair}"/>`;
+      mouth=`<path d="M106 138 Q120 146 134 138" stroke="${hair}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+    }
+    const bg = mood==="happy" ? "#e6f4ee" : mood==="stressed" ? "#fdecec" : "#eef1f6";
+    return `<svg class="avatar-svg" viewBox="0 0 240 240" role="img" aria-label="character">
+      <circle cx="120" cy="120" r="118" fill="${bg}"/>
+      <clipPath id="c-${mood}"><circle cx="120" cy="120" r="118"/></clipPath>
+      <g clip-path="url(#c-${mood})">
+        <path d="M40 240 Q40 188 86 176 L154 176 Q200 188 200 240 Z" fill="${shirt}"/>
+        <path d="M104 176 L120 196 L136 176 Z" fill="#2569cf"/>
+        <rect x="107" y="150" width="26" height="32" rx="11" fill="${skin}"/>
+        <ellipse cx="120" cy="116" rx="44" ry="50" fill="${skin}"/>
+        <circle cx="78" cy="120" r="8" fill="${skin}"/><circle cx="162" cy="120" r="8" fill="${skin}"/>
+        <path d="M78 108 Q80 64 120 62 Q160 64 162 108 Q150 86 120 86 Q90 86 78 108 Z" fill="${hair}"/>
+        ${brows}${eyes}${mouth}${sweat}
+      </g>
+    </svg>`;
+  }
+  document.querySelectorAll('.char').forEach(el=>{ el.innerHTML=avatar(el.dataset.mood||'focused'); });
+
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>{
+      const on=k===i; s.classList.toggle('active',on);
+      // restart reveal stagger
+      s.querySelectorAll('[data-reveal]').forEach((el,r)=>{ el.style.transitionDelay = on ? (80+r*95)+'ms' : '0ms'; });
+    });
+    counter.textContent=String(i+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+    bar.style.width=((i)/(slides.length-1)*100)+'%';
+    document.body.classList.toggle('chrome', i>0);
+    notes.innerHTML=slides[i].dataset.notes||'';
+  }
+  function next(){show(i+1);} function prev(){show(i-1);}
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();next();}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();prev();}
+    else if(e.key==='Home'){show(0);} else if(e.key==='End'){show(slides.length-1);}
+    else if(e.key==='f'||e.key==='F'){ if(!document.fullscreenElement)document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+    else if(e.key==='n'||e.key==='N'){ notesOn=!notesOn; notes.classList.toggle('show',notesOn); }
+  });
+  document.getElementById('stage').addEventListener('click',e=>{ (e.clientX < innerWidth*0.32)?prev():next(); });
+  // touch
+  let tx=0; addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+  addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx; if(Math.abs(dx)>40)(dx<0?next():prev());},{passive:true});
+
+  show(0);
+})();
+</script>
+</body>
+</html>

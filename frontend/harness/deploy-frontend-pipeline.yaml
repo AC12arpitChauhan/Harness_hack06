@@ -30,7 +30,7 @@ pipeline:
                   name: Build_and_Push_Frontend
                   identifier: Build_and_Push_Frontend
                   spec:
-                    connectorRef: account.dockerHub
+                    connectorRef: dockerhub_hack06
                     repo: ac12arpitchauhan/pr-health-frontend   # make this Docker Hub repo PUBLIC
                     tags:
                       - <+pipeline.sequenceId>
@@ -44,7 +44,7 @@ pipeline:
                   name: Deploy_Frontend
                   identifier: Deploy_Frontend
                   spec:
-                    connectorRef: account.dockerHub
+                    connectorRef: dockerhub_hack06
                     image: bitnami/kubectl:latest
                     shell: Sh
                     command: |
