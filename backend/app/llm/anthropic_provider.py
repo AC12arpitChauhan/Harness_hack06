@@ -33,6 +33,15 @@ class AnthropicNarrator(LLMProvider):
         summary, recommendation = _split_sections(text)
         return Narrative(summary=summary, recommendation=recommendation, model=resp.model or self.model)
 
+    def probe(self) -> str:
+        """Tiny round-trip to verify the API key/model; returns the model id."""
+        resp = self._client.messages.create(
+            model=self.model,
+            max_tokens=16,
+            messages=[{"role": "user", "content": "Reply with the single word: OK"}],
+        )
+        return resp.model or self.model
+
 
 def _split_sections(text: str) -> tuple[str, str]:
     """Parse 'SUMMARY: ... RECOMMENDATION: ...'; degrade gracefully if unformatted."""

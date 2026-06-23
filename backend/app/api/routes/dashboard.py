@@ -11,6 +11,7 @@ from app.api.schemas import (
     AuthorStatsOut,
     BackfillAccepted,
     BackfillRequest,
+    LLMCheckOut,
     MergeReadinessOut,
     NarrativeOut,
     OverviewOut,
@@ -23,6 +24,7 @@ from app.api.schemas import (
     SignalTrendOut,
 )
 from app.config import Settings
+from app.llm.registry import build_narrator
 from app.persistence import orm
 from app.persistence.repository import Repository
 from app.services.backfill_service import backfill_repo
@@ -190,6 +192,38 @@ def score_history(
     _require_repo(repository, repo_id)
     points = repository.score_history(repo_id, period_days)
     return ScoreHistoryOut(repo_id=repo_id, period_days=period_days, points=points)
+
+
+@router.get(
+    "/admin/llm_check", response_model=LLMCheckOut, dependencies=[Depends(require_auth)]
+)
+def llm_check(settings: Settings = Depends(settings_dep)) -> LLMCheckOut:
+    """Live round-trip to the configured narrator so the /analyze->LLM path is
+    verifiable with one call (the real narrate step runs in the background and
+    swallows errors). Auth-gated because it makes a billable model call."""
+    narrator = build_narrator(settings)
+    is_bedrock = settings.llm_backend == "bedrock"
+    backend = settings.llm_backend if settings.llm_enabled else "disabled"
+    model_cfg = settings.bedrock_model if is_bedrock else settings.anthropic_model
+    ok = False
+    model_returned: str | None = None
+    error: str | None = None
+    try:
+        model_returned = narrator.probe()
+        ok = True
+    except Exception as exc:  # surface the true error to the operator
+        error = f"{type(exc).__name__}: {exc}"[:800]
+    return LLMCheckOut(
+        llm_enabled=settings.llm_enabled,
+        backend=backend,
+        narrator=type(narrator).__name__,
+        model_configured=model_cfg,
+        region=settings.bedrock_region if is_bedrock else None,
+        key_present=bool(settings.bedrock_api_key or settings.anthropic_api_key),
+        ok=ok,
+        model_returned=model_returned,
+        error=error,
+    )
 
 
 @router.post(

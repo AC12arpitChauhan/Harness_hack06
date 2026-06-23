@@ -22,6 +22,10 @@ _SEVERITY_RANK = {
 class TemplatedNarrator(LLMProvider):
     MODEL = "templated-fallback"
 
+    def probe(self) -> str:
+        """No network — the templated narrator is always live."""
+        return self.MODEL
+
     def narrate(self, pr: PullRequest, signals: list[AnalysisSignal], score: Score) -> Narrative:
         issues = sorted(
             (s for s in signals if s.exceeds_threshold or s.severity is not Severity.INFO),

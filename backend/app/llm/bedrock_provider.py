@@ -34,3 +34,12 @@ class BedrockNarrator(LLMProvider):
         text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
         summary, recommendation = _split_sections(text)
         return Narrative(summary=summary, recommendation=recommendation, model=getattr(resp, "model", self.model))
+
+    def probe(self) -> str:
+        """Tiny round-trip to verify Bedrock auth/model/region; returns the model id."""
+        resp = self._client.messages.create(
+            model=self.model,
+            max_tokens=16,
+            messages=[{"role": "user", "content": "Reply with the single word: OK"}],
+        )
+        return getattr(resp, "model", self.model)

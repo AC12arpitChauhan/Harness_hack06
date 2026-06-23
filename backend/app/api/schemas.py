@@ -187,3 +187,18 @@ class ScoreHistoryOut(BaseModel):
     repo_id: str
     period_days: int
     points: list[ScoreHistoryPoint] = []
+
+
+class LLMCheckOut(BaseModel):
+    """Synchronous diagnostic for the /analyze -> narrate path. `ok` means a live
+    round-trip to the configured narrator succeeded; `error` carries the real
+    exception when it didn't (the background narrate step otherwise swallows it)."""
+    llm_enabled: bool
+    backend: str  # "bedrock" | "anthropic" | "disabled"
+    narrator: str  # concrete class chosen (BedrockNarrator / TemplatedNarrator / ...)
+    model_configured: str
+    region: str | None = None
+    key_present: bool
+    ok: bool
+    model_returned: str | None = None
+    error: str | None = None

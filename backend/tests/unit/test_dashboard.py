@@ -163,3 +163,15 @@ def test_backfill_requires_auth_and_accepts(client, auth_headers, monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["status"] == "accepted"
     assert calls == [("github", "o/r", 7)]
+
+
+def test_llm_check_requires_auth_and_reports(client, auth_headers):
+    # No auth -> 401 (billable call is gated).
+    assert client.get("/api/v1/admin/llm_check").status_code == 401
+    # With auth: tests run with LLM disabled, so the templated narrator answers live.
+    body = client.get("/api/v1/admin/llm_check", headers=auth_headers).json()
+    assert body["ok"] is True
+    assert body["error"] is None
+    assert body["narrator"] == "TemplatedNarrator"
+    assert body["model_returned"] == "templated-fallback"
+    assert body["backend"] == "disabled"

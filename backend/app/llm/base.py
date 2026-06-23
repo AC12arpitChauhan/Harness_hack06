@@ -27,3 +27,10 @@ class LLMProvider(ABC):
     ) -> Narrative:
         """Return a human-readable narrative. MUST NOT compute or alter scores."""
         raise NotImplementedError
+
+    def probe(self) -> str:
+        """Liveness check for the narration path. Real LLM providers override this
+        to make a tiny API call and return the responding model id (raising on
+        failure, so an operator sees the true error); no-network providers just
+        return their model tag."""
+        return getattr(self, "model", "unknown")
