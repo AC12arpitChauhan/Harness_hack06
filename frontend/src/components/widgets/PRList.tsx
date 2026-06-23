@@ -1,9 +1,12 @@
-import { ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, Download } from "lucide-react";
 import { Card, CardHead } from "../primitives/Card";
 import { Dot, HealthNumber, StateChip } from "../primitives/Chip";
 import { EmptyState, ErrorState, Skeleton } from "../primitives/States";
 import { usePRs } from "../../lib/queries";
+import { api } from "../../lib/api";
 import { relativeTime } from "../../lib/format";
+import { toCsv, downloadCsv } from "../../lib/csv";
 
 interface Props {
   repoId: string | undefined;
@@ -11,8 +14,46 @@ interface Props {
   limit?: number;
 }
 
+const CSV_COLUMNS = [
+  { key: "pr_number", label: "PR #" },
+  { key: "title", label: "Title" },
+  { key: "author", label: "Author" },
+  { key: "state", label: "State" },
+  { key: "health_score", label: "Health" },
+  { key: "risk_score", label: "Risk" },
+  { key: "review_quality_score", label: "Review Quality" },
+  { key: "merge_readiness", label: "Merge Readiness" },
+  { key: "blocking_reason", label: "Blocking Reason" },
+  { key: "merged_at", label: "Merged At" },
+];
+
 export function PRList({ repoId, onSelect, limit = 14 }: Props) {
   const { data, isLoading, isError, refetch } = usePRs(repoId, { limit });
+  const [exporting, setExporting] = useState(false);
+
+  async function onExport() {
+    if (!repoId) return;
+    setExporting(true);
+    try {
+      // Export the full list (not just the 14 shown). Plain GET — no auth needed.
+      const all = await api.prs(repoId, { limit: 1000 });
+      const rows = all.map((pr) => ({
+        pr_number: pr.provider_pr_id,
+        title: pr.title,
+        author: pr.author,
+        state: pr.state,
+        health_score: pr.score?.health_score ?? "",
+        risk_score: pr.score?.risk_score ?? "",
+        review_quality_score: pr.score?.review_quality_score ?? "",
+        merge_readiness: pr.score?.merge_readiness ?? "",
+        blocking_reason: pr.score?.blocking_reason ?? "",
+        merged_at: pr.merged_at ?? "",
+      }));
+      downloadCsv(`pr-health-${repoId}.csv`, toCsv(CSV_COLUMNS, rows));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <Card index={4} flush className="flex h-full flex-col">
@@ -21,9 +62,20 @@ export function PRList({ repoId, onSelect, limit = 14 }: Props) {
           eyebrow="Pull Requests"
           title="Recent activity"
           right={
-            <span className="rounded-full bg-canvas-deep px-2.5 py-1 text-[11px] font-semibold text-ink-soft tnum">
-              {data?.length ?? 0}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onExport}
+                disabled={exporting || !data || data.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-full border border-hair-strong bg-surface px-3 py-1.5 text-[11px] font-semibold text-ink transition hover:bg-canvas-deep disabled:opacity-50"
+                title="Download all PRs and their scores as CSV"
+              >
+                <Download size={13} />
+                {exporting ? "Exporting…" : "Export CSV"}
+              </button>
+              <span className="rounded-full bg-canvas-deep px-2.5 py-1 text-[11px] font-semibold text-ink-soft tnum">
+                {data?.length ?? 0}
+              </span>
+            </div>
           }
         />
       </div>

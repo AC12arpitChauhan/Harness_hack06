@@ -63,7 +63,7 @@ async function get<T>(path: string, params?: Record<string, string | number | un
   return (await resp.json()) as T;
 }
 
-async function send<T>(method: "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
+async function send<T>(method: "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
   const url = new URL(`${PREFIX}${path}`, window.location.origin);
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -134,4 +134,7 @@ export const api = {
     send<ScoringConfigOut>("PUT", "/scoring-config", body),
 
   resetScoringConfig: () => send<ScoringConfigOut>("DELETE", "/scoring-config"),
+
+  analyzePR: (provider: string, repo: string, prNumber: number) =>
+    send<Record<string, unknown>>("POST", "/analyze", { provider, repo, pr_number: prNumber }),
 };
