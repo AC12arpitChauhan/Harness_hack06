@@ -1,0 +1,72 @@
+pipeline:
+  name: deploy_frontend
+  identifier: deploy_frontend
+  projectIdentifier: hack06
+  orgIdentifier: bootcampjune2026
+  properties:
+    ci:
+      codebase:
+        connectorRef: for_deploy_pipeline       # same GitHub connector as your backend pipeline
+        repoName: Harness_hack06                # repo that contains frontend/ (Dockerfile + k8s/)
+        build: <+input>
+  stages:
+    - stage:
+        name: build_and_deploy_frontend
+        identifier: build_and_deploy_frontend
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: account.btteamcluster   # the shared bootcamp cluster
+              namespace: harness-delegate-ng         # build pod runs here (must already exist)
+              automountServiceAccountToken: true
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: Build_and_Push_Frontend
+                  identifier: Build_and_Push_Frontend
+                  spec:
+                    connectorRef: account.dockerHub
+                    repo: ac12arpitchauhan/pr-health-frontend   # make this Docker Hub repo PUBLIC
+                    tags:
+                      - <+pipeline.sequenceId>
+                    dockerfile: frontend/Dockerfile
+                    context: frontend
+                    buildArgs:
+                      VITE_API_BASE: http://136.109.192.193:8000   # backend public LoadBalancer (http)
+                      VITE_ADMIN_TOKEN: dev-token                  # = backend FASTAPI_AUTH_TOKEN (for Settings save)
+              - step:
+                  type: Run
+                  name: Deploy_Frontend
+                  identifier: Deploy_Frontend
+                  spec:
+                    connectorRef: account.dockerHub
+                    image: bitnami/kubectl:latest
+                    shell: Sh
+                    command: |
+                      set -e
+                      NS=hack06-pr-health
+                      IMG=docker.io/ac12arpitchauhan/pr-health-frontend:<+pipeline.sequenceId>
+
+                      kubectl apply -f backend/k8s/namespace.yaml          # idempotent
+                      kubectl -n "$NS" apply -f frontend/k8s/deployment.yaml
+                      kubectl -n "$NS" set image deployment/pr-health-frontend pr-health-frontend="$IMG"
+                      kubectl -n "$NS" rollout status deployment/pr-health-frontend --timeout=180s
+
+                      echo "Waiting for LoadBalancer address..."
+                      ADDR=""
+                      for i in $(seq 1 24); do
+                        ADDR=$(kubectl -n "$NS" get svc pr-health-frontend -o jsonpath='{.status.loadBalancer.ingress[0].ip}{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+                        if [ -n "$ADDR" ]; then break; fi
+                        sleep 5
+                      done
+                      kubectl -n "$NS" get svc pr-health-frontend
+                      if [ -n "$ADDR" ]; then
+                        echo "DASHBOARD URL: http://$ADDR"
+                      else
+                        echo "EXTERNAL-IP still pending."
+                      fi

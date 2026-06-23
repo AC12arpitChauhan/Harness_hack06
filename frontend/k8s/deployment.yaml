@@ -1,0 +1,44 @@
+# Frontend dashboard — deployed into the SAME namespace + cluster as the backend.
+# The deploy pipeline pins the image tag via `kubectl set image`.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pr-health-frontend
+  namespace: hack06-pr-health
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: pr-health-frontend }
+  template:
+    metadata:
+      labels: { app: pr-health-frontend }
+    spec:
+      containers:
+        - name: pr-health-frontend
+          image: docker.io/ac12arpitchauhan/pr-health-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: 80 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pr-health-frontend
+  namespace: hack06-pr-health
+spec:
+  type: LoadBalancer          # gets its own public IP, like the backend
+  selector: { app: pr-health-frontend }
+  ports:
+    - port: 80
+      targetPort: 80
