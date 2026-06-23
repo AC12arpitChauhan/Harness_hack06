@@ -66,6 +66,7 @@ pipeline:
                         --from-literal=FASTAPI_AUTH_TOKEN='<+secrets.getValue("pr_health_api_token")>' \
                         --from-literal=BEDROCK_API_KEY='<+secrets.getValue("bedrock_api_key")>' \
                         --from-literal=SLACK_WEBHOOK_URL='<+secrets.getValue("slack_webhook_url")>' \
+                        --from-literal=HARNESS_TOKEN='<+secrets.getValue("harness_scm_token")>' \
                         --from-literal=POSTGRES_PASSWORD="$PGPW" \
                         --from-literal=DATABASE_URL="postgresql+psycopg2://prhealth:${PGPW}@postgres:5432/prhealth" \
                         --dry-run=client -o yaml | kubectl apply -f -
