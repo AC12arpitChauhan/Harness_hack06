@@ -29,7 +29,7 @@ spec:
             - containerPort: 8000
           env:
             # Non-secret config (matches app/config.py Settings)
-            - { name: LLM_ENABLED, value: "true" }
+            - { name: LLM_ENABLED, value: "false" }
             - { name: LLM_BACKEND, value: "bedrock" }
             - { name: BEDROCK_REGION, value: "us-east-1" }
             - { name: BEDROCK_MODEL, value: "us.anthropic.claude-sonnet-4-6" }
