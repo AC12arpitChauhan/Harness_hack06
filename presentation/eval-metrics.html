@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PR Health — Evaluation metrics</title>
+<style>
+  :root{ --ink:#1f2430; --soft:#6b7280; --line:#e3e6ea; --head:#f3f5f7;
+         --green:#1f9d6b; --blue:#2f7ff0; --coral:#e5484d; --amber:#e0892a; }
+  *{box-sizing:border-box;}
+  body{margin:0; background:#f6f7f9; color:var(--ink);
+       font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1100px; margin:0 auto; padding:40px 24px 80px;}
+  h2{font-size:20px; margin:34px 0 14px; letter-spacing:-.01em;}
+  h2 .muted{color:var(--soft); font-weight:500; font-size:15px;}
+  table{width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line);
+        border-radius:14px; overflow:hidden; box-shadow:0 1px 2px rgba(16,17,26,.03);}
+  th,td{text-align:left; padding:14px 18px; vertical-align:top; border-top:1px solid var(--line); font-size:14.5px; line-height:1.45;}
+  thead th{background:var(--head); border-top:none; font-size:12px; letter-spacing:.10em;
+           text-transform:uppercase; color:var(--soft); font-weight:700;}
+  tbody tr:first-child td{border-top:none;}
+  td.name{font-weight:700; width:170px; white-space:nowrap;}
+  td.plain{width:38%; color:#33384a;}
+  td.tech{color:var(--soft); font-size:13.5px;}
+  .range{font-weight:600;} .range small{color:var(--soft); font-weight:400;}
+  .sc .name{color:var(--green);} .sg .name{color:var(--blue);}
+  b.crit{color:var(--coral);} b.high{color:var(--amber);} b.low{color:#8a93a3;}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; background:#f1f3f5; padding:1px 5px; border-radius:5px;}
+  @media print{ body{background:#fff;} table{box-shadow:none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h2>The 4 scores you read <span class="muted">— top of the dashboard</span></h2>
+  <table class="sc">
+    <thead><tr><th>Score</th><th>In plain terms</th><th>Range</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Health</td><td class="plain">overall quality of the PR</td><td class="range">0–100</td></tr>
+      <tr><td class="name">Risk</td><td class="plain">how likely this change bites you</td><td class="range">0–100 <small>(lower is better)</small></td></tr>
+      <tr><td class="name">Review quality</td><td class="plain">was it actually reviewed?</td><td class="range">0–100</td></tr>
+      <tr><td class="name">Merge readiness</td><td class="plain">is it safe to merge right now?</td><td class="range">0–100 <small>(capped low if blocked)</small></td></tr>
+    </tbody>
+  </table>
+
+  <h2>The 5 signals that feed them <span class="muted">— the eval metrics</span></h2>
+  <table class="sg">
+    <thead><tr><th>Signal</th><th>Simple terms</th><th>Technical detail</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="name">CI status</td>
+        <td class="plain">Did the build pass? Shipping on red is the worst thing you can do.</td>
+        <td class="tech">required vs optional checks; <b class="crit">merged-despite-failing</b> &amp; <b class="crit">failing-required</b> = critical, hard-block · pending · "no CI" = a gap</td>
+      </tr>
+      <tr>
+        <td class="name">Merge speed</td>
+        <td class="plain">Merged in minutes = nobody really looked.</td>
+        <td class="tech">open→merge time: <b class="crit">&lt; 15 min = critical</b>, <b class="high">&lt; 60 min = high</b></td>
+      </tr>
+      <tr>
+        <td class="name">Change size</td>
+        <td class="plain">Huge diffs can't be reviewed well.</td>
+        <td class="tech">additions+deletions ≥ <code>250 / 500 / 1000</code> = med / high / critical; ≥ <code>30 files</code> flagged</td>
+      </tr>
+      <tr>
+        <td class="name">Review quality</td>
+        <td class="plain">Did a human approve it?</td>
+        <td class="tech"><b class="crit">0 reviewers on a &gt;10-line change = critical, hard-block</b>; reviewed-but-not-approved = <b class="high">high</b>; single reviewer = <b class="low">low</b></td>
+      </tr>
+      <tr>
+        <td class="name">Ticket linkage</td>
+        <td class="plain">Can we trace it to planned work?</td>
+        <td class="tech">Jira key in title / branch / description (surfaced for traceability)</td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
+</body>
+</html>

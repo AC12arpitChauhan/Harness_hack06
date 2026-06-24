@@ -186,6 +186,7 @@ class ScoreHistoryPoint(BaseModel):
 class ScoreHistoryOut(BaseModel):
     repo_id: str
     period_days: int
+    bucket: str = "day"  # hour | day | week
     points: list[ScoreHistoryPoint] = []
 
 

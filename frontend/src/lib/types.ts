@@ -113,9 +113,12 @@ export interface ScoreHistoryPoint {
   avg_health: number;
 }
 
+export type HistoryBucket = "hour" | "day" | "week";
+
 export interface ScoreHistoryOut {
   repo_id: string;
   period_days: number;
+  bucket: HistoryBucket;
   points: ScoreHistoryPoint[];
 }
 

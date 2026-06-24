@@ -262,11 +262,13 @@ def revert_analysis(
 def score_history(
     repo_id: str,
     period_days: int = Query(default=30, ge=1, le=365),
+    bucket: str = Query(default="day"),
     repository: Repository = Depends(repository_dep),
 ) -> ScoreHistoryOut:
     _require_repo(repository, repo_id)
-    points = repository.score_history(repo_id, period_days)
-    return ScoreHistoryOut(repo_id=repo_id, period_days=period_days, points=points)
+    bucket = bucket if bucket in {"hour", "day", "week"} else "day"
+    points = repository.score_history(repo_id, period_days, bucket)
+    return ScoreHistoryOut(repo_id=repo_id, period_days=period_days, bucket=bucket, points=points)
 
 
 def _scoring_config_out(settings: Settings, eff: dict) -> ScoringConfigOut:

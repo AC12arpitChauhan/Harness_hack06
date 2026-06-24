@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PR Health — Architecture &amp; Flow diagrams</title>
+<style>
+  :root{
+    --ink:#1f2430; --soft:#6b7280; --line:#cdd2da; --arr:#8b92a0;
+    --blue:#2f7ff0; --green:#1f9d6b; --amber:#e0892a; --card:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:#f6f7f9; color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1260px; margin:0 auto; padding:36px 22px 90px;}
+  header h1{font-size:24px; margin:0 0 4px; letter-spacing:-.01em;}
+  header p{margin:0; color:var(--soft); font-size:14px;}
+  section{background:var(--card); border:1px solid #e6e8ec; border-radius:16px;
+    padding:24px 26px 28px; margin:26px 0; box-shadow:0 1px 2px rgba(16,17,26,.03);}
+  .tag{font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace; color:#9aa0ab; letter-spacing:.12em; text-transform:uppercase;}
+  section h2{font-size:18px; margin:6px 0 2px; letter-spacing:-.01em;}
+  section .desc{margin:0 0 18px; color:var(--soft); font-size:13.5px; line-height:1.45;}
+  svg{width:100%; height:auto; display:block;}
+  text{font-family:ui-sans-serif,system-ui,sans-serif;}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; margin-top:14px; font-size:12px; color:var(--soft);}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .sw{width:12px; height:12px; border-radius:4px; border:2px solid;}
+  @media print{ body{background:#fff;} section{break-inside:avoid; box-shadow:none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>PR Health — Architecture &amp; Flow</h1>
+    <p>Six views of the same system, simplest → most detailed. Pick one for the end-to-end slide.</p>
+    <div class="legend">
+      <span><i class="sw" style="border-color:var(--blue)"></i> SCM / sources</span>
+      <span><i class="sw" style="border-color:var(--green)"></i> deterministic core</span>
+      <span><i class="sw" style="border-color:var(--amber)"></i> AI (read-only)</span>
+      <span><i class="sw" style="border-color:var(--line)"></i> service / data</span>
+    </div>
+  </header>
+
+  <!-- ============ 1 · AT A GLANCE ============ -->
+  <section>
+    <div class="tag">Diagram 1 · simplest</div>
+    <h2>At a glance</h2>
+    <p class="desc">The whole product in one line: a pull request goes in, a deterministic score comes out, the dashboard reads it.</p>
+    <svg viewBox="0 0 1100 150">
+      <defs><marker id="a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--arr)"/></marker></defs>
+      <line x1="246" y1="75" x2="298" y2="75" stroke="var(--arr)" stroke-width="2" marker-end="url(#a1)"/>
+      <line x1="516" y1="75" x2="558" y2="75" stroke="var(--arr)" stroke-width="2" marker-end="url(#a1)"/>
+      <line x1="816" y1="75" x2="858" y2="75" stroke="var(--arr)" stroke-width="2" marker-end="url(#a1)"/>
+      <rect x="36" y="45" width="210" height="62" rx="12" fill="#fff" stroke="var(--blue)" stroke-width="2"/>
+      <text x="141" y="82" text-anchor="middle" font-size="17" font-weight="600">Pull request</text>
+      <rect x="298" y="45" width="218" height="62" rx="12" fill="#fff" stroke="var(--line)"/>
+      <text x="407" y="82" text-anchor="middle" font-size="17" font-weight="600">Analyze API</text>
+      <rect x="558" y="38" width="258" height="76" rx="12" fill="#f0faf5" stroke="var(--green)" stroke-width="2"/>
+      <text x="687" y="71" text-anchor="middle" font-size="17" font-weight="700">Deterministic score</text>
+      <text x="687" y="92" text-anchor="middle" font-size="12" fill="var(--soft)">health · risk · readiness</text>
+      <rect x="858" y="45" width="206" height="62" rx="12" fill="#fff" stroke="var(--line)"/>
+      <text x="961" y="82" text-anchor="middle" font-size="17" font-weight="600">Dashboard</text>
+    </svg>
+  </section>
+
+  <!-- ============ 2 · EVENT / CI FLOW ============ -->
+  <section>
+    <div class="tag">Diagram 2 · event flow</div>
+    <h2>From a PR event to a dashboard row</h2>
+    <p class="desc">A PR event fires a Harness trigger → a pipeline calls <code>/analyze</code> → the score is persisted and surfaced, and the result is written back onto the PR.</p>
+    <svg viewBox="0 0 1200 290">
+      <defs><marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--arr)"/></marker></defs>
+      <!-- top row -->
+      <line x1="232" y1="76" x2="276" y2="76" stroke="var(--arr)" stroke-width="2" marker-end="url(#a2)"/>
+      <line x1="430" y1="76" x2="474" y2="76" stroke="var(--arr)" stroke-width="2" marker-end="url(#a2)"/>
+      <line x1="636" y1="76" x2="680" y2="76" stroke="var(--arr)" stroke-width="2" marker-end="url(#a2)"/>
+      <line x1="852" y1="76" x2="896" y2="76" stroke="var(--arr)" stroke-width="2" marker-end="url(#a2)"/>
+      <line x1="1018" y1="76" x2="1062" y2="76" stroke="var(--arr)" stroke-width="2" marker-end="url(#a2)"/>
+      <rect x="22" y="48" width="210" height="58" rx="12" fill="#fff" stroke="var(--blue)" stroke-width="2"/>
+      <text x="127" y="73" text-anchor="middle" font-size="15" font-weight="600">PR opened</text>
+      <text x="127" y="92" text-anchor="middle" font-size="11.5" fill="var(--soft)">GitHub / Harness Code</text>
+      <rect x="276" y="48" width="154" height="58" rx="12" fill="#fff" stroke="var(--line)"/>
+      <text x="353" y="82" text-anchor="middle" font-size="15" font-weight="600">Harness trigger</text>
+      <rect x="474" y="48" width="162" height="58" rx="12" fill="#fff" stroke="var(--line)"/>
+      <text x="555" y="82" text-anchor="middle" font-size="15" font-weight="600">Pipeline</text>
+      <rect x="680" y="42" width="172" height="70" rx="12" fill="#f0faf5" stroke="var(--green)" stroke-width="2"/>
+      <text x="766" y="73" text-anchor="middle" font-size="15" font-weight="700">POST /analyze</text>
+      <text x="766" y="92" text-anchor="middle" font-size="11.5" fill="var(--soft)">score (deterministic)</text>
+      <rect x="896" y="48" width="122" height="58" rx="12" fill="#fff" stroke="var(--line)"/>
+      <text x="957" y="82" text-anchor="middle" font-size="15" font-weight="600">Postgres</text>
+      <rect x="1062" y="48" width="120" height="58" rx="12" fill="#fff" stroke="var(--line)"/>
+      <text x="1122" y="82" text-anchor="middle" font-size="15" font-weight="600">Dashboard</text>
+      <!-- write-back branch -->
+      <line x1="766" y1="112" x2="766" y2="196" stroke="var(--arr)" stroke-width="2" marker-end="url(#a2)" stroke-dasharray="5 5"/>
+      <text x="784" y="160" font-size="12" fill="var(--soft)">async write-back</text>
+      <rect x="560" y="196" width="412" height="62" rx="12" fill="#fff7ed" stroke="var(--amber)" stroke-width="2"/>
+      <text x="766" y="222" text-anchor="middle" font-size="14.5" font-weight="600">PR comment + commit status · Slack alert</text>
+      <text x="766" y="242" text-anchor="middle" font-size="11.5" fill="var(--soft)">+ AI fix suggestion when the build is failing</text>
+    </svg>
+  </section>
+
+  <!-- ============ 3 · LAYERED SYSTEM ============ -->
+  <section>
+    <div class="tag">Diagram 3 · layered system</div>
+    <h2>Sources → deterministic core → surfaces (with the AI on the side)</h2>
+    <p class="desc">Both SCMs normalize through one adapter; the pure core scores; Claude reads the score (never changes it); FastAPI + Postgres serve the dashboard, write-back and Slack.</p>
+    <svg viewBox="0 0 1200 470">
+      <defs><marker id="a3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--arr)"/></marker></defs>
+      <!-- sources -->
+      <rect x="30" y="70" width="180" height="50" rx="11" fill="#fff" stroke="var(--blue)" stroke-width="2"/><text x="120" y="101" text-anchor="middle" font-size="15" font-weight="600">GitHub</text>
+      <rect x="30" y="134" width="180" height="50" rx="11" fill="#fff" stroke="var(--blue)" stroke-width="2"/><text x="120" y="165" text-anchor="middle" font-size="15" font-weight="600">Harness Code</text>
+      <line x1="210" y1="95" x2="252" y2="120" stroke="var(--arr)" stroke-width="2" marker-end="url(#a3)"/>
+      <line x1="210" y1="159" x2="252" y2="134" stroke="var(--arr)" stroke-width="2" marker-end="url(#a3)"/>
+      <rect x="254" y="100" width="150" height="54" rx="11" fill="#fff" stroke="var(--line)"/><text x="329" y="125" text-anchor="middle" font-size="14.5" font-weight="600">Adapter</text><text x="329" y="143" text-anchor="middle" font-size="11" fill="var(--soft)">normalize → PR</text>
+      <line x1="404" y1="127" x2="446" y2="127" stroke="var(--arr)" stroke-width="2" marker-end="url(#a3)"/>
+      <!-- core -->
+      <rect x="448" y="62" width="300" height="132" rx="14" fill="#f0faf5" stroke="var(--green)" stroke-width="2"/>
+      <text x="598" y="88" text-anchor="middle" font-size="11" letter-spacing="1.5" font-weight="700" fill="var(--green)">DETERMINISTIC CORE · NO LLM</text>
+      <text x="598" y="116" text-anchor="middle" font-size="15" font-weight="700">5 analyzers → scoring engine</text>
+      <text x="598" y="140" text-anchor="middle" font-size="11.5" fill="var(--soft)">ci_status · merge_speed · change_size · review_quality · jira</text>
+      <text x="598" y="170" text-anchor="middle" font-size="13" font-weight="600">Health · Risk · Review · Readiness</text>
+      <line x1="748" y1="127" x2="792" y2="127" stroke="var(--arr)" stroke-width="2" marker-end="url(#a3)"/>
+      <rect x="794" y="100" width="170" height="54" rx="11" fill="#fff" stroke="var(--line)"/><text x="879" y="132" text-anchor="middle" font-size="14.5" font-weight="600">FastAPI + Postgres</text>
+      <line x1="964" y1="127" x2="1008" y2="127" stroke="var(--arr)" stroke-width="2" marker-end="url(#a3)"/>
+      <!-- surfaces -->
+      <rect x="1010" y="70" width="166" height="50" rx="11" fill="#fff" stroke="var(--line)"/><text x="1093" y="101" text-anchor="middle" font-size="14.5" font-weight="600">Dashboard</text>
+      <rect x="1010" y="128" width="166" height="46" rx="11" fill="#fff" stroke="var(--line)"/><text x="1093" y="156" text-anchor="middle" font-size="14.5" font-weight="600">PR write-back</text>
+      <rect x="1010" y="182" width="166" height="46" rx="11" fill="#fff" stroke="var(--line)"/><text x="1093" y="210" text-anchor="middle" font-size="14.5" font-weight="600">Slack alert</text>
+      <line x1="879" y1="154" x2="1006" y2="150" stroke="var(--arr)" stroke-width="1.6" marker-end="url(#a3)"/>
+      <line x1="879" y1="154" x2="1006" y2="203" stroke="var(--arr)" stroke-width="1.6" marker-end="url(#a3)"/>
+      <!-- LLM side -->
+      <line x1="598" y1="194" x2="598" y2="300" stroke="var(--amber)" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#a3)"/>
+      <text x="616" y="250" font-size="12" fill="var(--amber)">reads the score —</text>
+      <text x="616" y="268" font-size="12" fill="var(--amber)">never changes it</text>
+      <rect x="448" y="300" width="300" height="76" rx="14" fill="#fff7ed" stroke="var(--amber)" stroke-width="2"/>
+      <text x="598" y="332" text-anchor="middle" font-size="15" font-weight="700" fill="var(--amber)">Claude · Bedrock / Anthropic</text>
+      <text x="598" y="354" text-anchor="middle" font-size="12" fill="var(--soft)">PR narrative + AI fix suggestion</text>
+      <text x="598" y="430" text-anchor="middle" font-size="12.5" fill="var(--soft)">Runs on Kubernetes · shipped by a Harness CI/CD pipeline that triggers on every PR</text>
+    </svg>
+  </section>
+
+  <!-- ============ 4 · END-TO-END SEQUENCE ============ -->
+  <section>
+    <div class="tag">Diagram 4 · end-to-end sequence</div>
+    <h2>Every step, PR open → dashboard</h2>
+    <p class="desc">The exact order of operations. Steps 1–7 happen synchronously; 8–11 run in the background so the response never blocks.</p>
+    <svg viewBox="0 0 1200 660">
+      <line x1="92" y1="40" x2="92" y2="612" stroke="var(--line)" stroke-width="2"/>
+      <!-- phase labels -->
+      <text x="118" y="34" class="ph" font-size="11" letter-spacing="1.5" font-weight="700" fill="#9aa0ab">TRIGGER</text>
+      <text x="118" y="206" font-size="11" letter-spacing="1.5" font-weight="700" fill="#9aa0ab">ANALYZE · SYNCHRONOUS</text>
+      <text x="118" y="430" font-size="11" letter-spacing="1.5" font-weight="700" fill="#9aa0ab">AFTER · BACKGROUND</text>
+
+      <!-- step generator: dot + title + sub -->
+      <!-- 1 -->
+      <circle cx="92" cy="64" r="9" fill="var(--blue)"/><text x="78" y="69" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+      <text x="118" y="61" font-size="16" font-weight="600">PR opened</text><text x="118" y="80" font-size="12.5" fill="var(--soft)">on GitHub or Harness Code</text>
+      <!-- 2 -->
+      <circle cx="92" cy="120" r="9" fill="var(--blue)"/><text x="92" y="125" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+      <text x="118" y="117" font-size="16" font-weight="600">Trigger fires → pipeline → POST /analyze</text><text x="118" y="136" font-size="12.5" fill="var(--soft)">provider + repo + pr_number passed from the trigger</text>
+      <!-- 3 -->
+      <circle cx="92" cy="236" r="9" fill="var(--green)"/><text x="92" y="241" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+      <text x="118" y="233" font-size="16" font-weight="600">Fetch PR + diff + reviews + checks</text><text x="118" y="252" font-size="12.5" fill="var(--soft)">from the provider's REST API</text>
+      <!-- 4 -->
+      <circle cx="92" cy="292" r="9" fill="var(--green)"/><text x="92" y="297" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+      <text x="118" y="289" font-size="16" font-weight="600">Run 5 analyzers → signals</text><text x="118" y="308" font-size="12.5" fill="var(--soft)">ci_status · merge_speed · change_size · review_quality · jira</text>
+      <!-- 5 -->
+      <circle cx="92" cy="348" r="9" fill="var(--green)"/><text x="92" y="353" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">5</text>
+      <text x="118" y="345" font-size="16" font-weight="600">Scoring engine → 4 scores</text><text x="118" y="364" font-size="12.5" fill="var(--soft)">Health · Risk · Review quality · Merge readiness</text>
+      <!-- 6 -->
+      <circle cx="92" cy="404" r="9" fill="var(--green)"/><text x="92" y="409" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">6</text>
+      <text x="118" y="401" font-size="16" font-weight="600">Persist run + signals + score (Postgres)</text>
+      <!-- 7 -->
+      <circle cx="92" cy="460" r="9" fill="var(--green)"/><text x="92" y="465" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">7</text>
+      <text x="118" y="457" font-size="16" font-weight="600">Return scores (response)</text>
+      <!-- 8 -->
+      <circle cx="92" cy="516" r="9" fill="var(--amber)"/><text x="92" y="521" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">8</text>
+      <text x="118" y="513" font-size="16" font-weight="600">Claude: narrative + AI fix suggestion</text><text x="118" y="532" font-size="12.5" fill="var(--soft)">reads the score — never changes it</text>
+      <!-- 9 -->
+      <circle cx="92" cy="572" r="9" fill="var(--amber)"/><text x="92" y="577" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">9</text>
+      <text x="118" y="569" font-size="16" font-weight="600">Write-back: PR comment + status · Slack (if failing)</text>
+      <!-- 10 -->
+      <circle cx="92" cy="612" r="9" fill="#9aa0ab"/><text x="92" y="617" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">10</text>
+      <text x="118" y="616" font-size="16" font-weight="600">Dashboard reads the aggregates (auto-refresh)</text>
+    </svg>
+  </section>
+
+  <!-- ============ 5 · HEXAGONAL ============ -->
+  <section>
+    <div class="tag">Diagram 5 · hexagonal architecture</div>
+    <h2>Ports &amp; adapters — the core is pure</h2>
+    <p class="desc">The domain + analyzers + scoring engine import nothing external. Every integration is an adapter on the edge, and all dependencies point <em>inward</em> — which is why one product covers two SCMs and two LLM backends.</p>
+    <svg viewBox="0 0 1120 520">
+      <defs><marker id="a5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--arr)"/></marker></defs>
+      <!-- core -->
+      <rect x="380" y="190" width="360" height="140" rx="16" fill="#f0faf5" stroke="var(--green)" stroke-width="2.5"/>
+      <text x="560" y="232" text-anchor="middle" font-size="13" letter-spacing="1.5" font-weight="700" fill="var(--green)">PURE CORE</text>
+      <text x="560" y="262" text-anchor="middle" font-size="16" font-weight="700">domain · analyzers · scoring engine</text>
+      <text x="560" y="288" text-anchor="middle" font-size="12.5" fill="var(--soft)">no external imports · same inputs → same score</text>
+      <!-- adapters -->
+      <rect x="60" y="60" width="250" height="56" rx="11" fill="#fff" stroke="var(--blue)" stroke-width="2"/><text x="185" y="93" text-anchor="middle" font-size="14.5" font-weight="600">GitHub adapter</text>
+      <rect x="810" y="60" width="250" height="56" rx="11" fill="#fff" stroke="var(--blue)" stroke-width="2"/><text x="935" y="93" text-anchor="middle" font-size="14.5" font-weight="600">Harness Code adapter</text>
+      <rect x="60" y="232" width="220" height="56" rx="11" fill="#fff" stroke="var(--line)"/><text x="170" y="265" text-anchor="middle" font-size="14.5" font-weight="600">FastAPI (HTTP in)</text>
+      <rect x="840" y="232" width="220" height="56" rx="11" fill="#fff" stroke="var(--line)"/><text x="950" y="265" text-anchor="middle" font-size="14.5" font-weight="600">Postgres repository</text>
+      <rect x="60" y="404" width="250" height="56" rx="11" fill="#fff7ed" stroke="var(--amber)" stroke-width="2"/><text x="185" y="437" text-anchor="middle" font-size="14.5" font-weight="600">Claude (Bedrock/Anthropic)</text>
+      <rect x="810" y="404" width="250" height="56" rx="11" fill="#fff" stroke="var(--line)"/><text x="935" y="437" text-anchor="middle" font-size="14.5" font-weight="600">Write-back · Slack</text>
+      <!-- inward arrows -->
+      <line x1="290" y1="116" x2="392" y2="196" stroke="var(--arr)" stroke-width="2" marker-end="url(#a5)"/>
+      <line x1="830" y1="116" x2="728" y2="196" stroke="var(--arr)" stroke-width="2" marker-end="url(#a5)"/>
+      <line x1="280" y1="260" x2="376" y2="260" stroke="var(--arr)" stroke-width="2" marker-end="url(#a5)"/>
+      <line x1="840" y1="260" x2="744" y2="260" stroke="var(--arr)" stroke-width="2" marker-end="url(#a5)"/>
+      <line x1="290" y1="404" x2="392" y2="324" stroke="var(--arr)" stroke-width="2" marker-end="url(#a5)"/>
+      <line x1="830" y1="404" x2="728" y2="324" stroke="var(--arr)" stroke-width="2" marker-end="url(#a5)"/>
+      <text x="560" y="492" text-anchor="middle" font-size="12.5" fill="var(--soft)">dependencies point inward → swapping a provider or LLM changes only an adapter</text>
+    </svg>
+  </section>
+
+  <!-- ============ 6 · SCORING INTERNALS ============ -->
+  <section>
+    <div class="tag">Diagram 6 · scoring internals</div>
+    <h2>How one PR's score is computed</h2>
+    <p class="desc">Deterministic, end to end. The LLM is nowhere in this path. The Jira signal is surfaced but carries zero weight, so it never moves a number.</p>
+    <svg viewBox="0 0 1180 360">
+      <defs><marker id="a6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--arr)"/></marker></defs>
+      <!-- analyzers -->
+      <text x="40" y="40" font-size="11" letter-spacing="1.2" font-weight="700" fill="#9aa0ab">5 ANALYZERS</text>
+      <g font-size="13" font-weight="600">
+        <rect x="40" y="52" width="190" height="40" rx="9" fill="#fff" stroke="var(--line)"/><text x="135" y="77" text-anchor="middle">ci_status</text>
+        <rect x="40" y="100" width="190" height="40" rx="9" fill="#fff" stroke="var(--line)"/><text x="135" y="125" text-anchor="middle">merge_speed</text>
+        <rect x="40" y="148" width="190" height="40" rx="9" fill="#fff" stroke="var(--line)"/><text x="135" y="173" text-anchor="middle">change_size</text>
+        <rect x="40" y="196" width="190" height="40" rx="9" fill="#fff" stroke="var(--line)"/><text x="135" y="221" text-anchor="middle">review_quality</text>
+        <rect x="40" y="244" width="190" height="40" rx="9" fill="#fff" stroke="var(--line)"/><text x="135" y="269" text-anchor="middle">ticket_linkage <tspan fill="var(--soft)" font-weight="400">· 0&nbsp;wt</tspan></text>
+      </g>
+      <path d="M230 168 H262" stroke="var(--arr)" stroke-width="2" marker-end="url(#a6)"/>
+      <!-- penalty -->
+      <rect x="264" y="120" width="210" height="96" rx="12" fill="#fff" stroke="var(--line)"/>
+      <text x="369" y="150" text-anchor="middle" font-size="14" font-weight="700">severity → penalty</text>
+      <text x="369" y="174" text-anchor="middle" font-size="11.5" fill="var(--soft)">INFO 0 · LOW 5 · MED 15</text>
+      <text x="369" y="192" text-anchor="middle" font-size="11.5" fill="var(--soft)">HIGH 30 · CRIT 50</text>
+      <path d="M474 168 H506" stroke="var(--arr)" stroke-width="2" marker-end="url(#a6)"/>
+      <!-- subscore -->
+      <rect x="508" y="128" width="200" height="80" rx="12" fill="#fff" stroke="var(--line)"/>
+      <text x="608" y="160" text-anchor="middle" font-size="14" font-weight="700">sub-score / analyzer</text>
+      <text x="608" y="184" text-anchor="middle" font-size="12.5" fill="var(--soft)">max(0, 100 − Σ penalties)</text>
+      <path d="M708 168 H740" stroke="var(--arr)" stroke-width="2" marker-end="url(#a6)"/>
+      <!-- weighted -->
+      <rect x="742" y="120" width="190" height="96" rx="12" fill="#f0faf5" stroke="var(--green)" stroke-width="2"/>
+      <text x="837" y="150" text-anchor="middle" font-size="14" font-weight="700">weighted combine</text>
+      <text x="837" y="174" text-anchor="middle" font-size="11.5" fill="var(--soft)">health &amp; risk weights</text>
+      <text x="837" y="192" text-anchor="middle" font-size="11.5" fill="var(--soft)">(sum to 1.0)</text>
+      <path d="M932 168 H964" stroke="var(--arr)" stroke-width="2" marker-end="url(#a6)"/>
+      <!-- outputs -->
+      <g font-size="13" font-weight="600">
+        <rect x="966" y="96" width="180" height="38" rx="9" fill="#fff" stroke="var(--green)"/><text x="1056" y="120" text-anchor="middle">Health</text>
+        <rect x="966" y="140" width="180" height="38" rx="9" fill="#fff" stroke="var(--line)"/><text x="1056" y="164" text-anchor="middle">Risk</text>
+        <rect x="966" y="184" width="180" height="38" rx="9" fill="#fff" stroke="var(--line)"/><text x="1056" y="208" text-anchor="middle">Review quality</text>
+        <rect x="966" y="228" width="180" height="38" rx="9" fill="#fff" stroke="var(--line)"/><text x="1056" y="252" text-anchor="middle">Merge readiness</text>
+      </g>
+      <text x="40" y="320" font-size="12.5" fill="var(--soft)">Hard blocker (failing required CI · merged-despite-failure · no review) → merge readiness capped at 15.&nbsp;&nbsp;Ready = readiness ≥ 70 and no blocker.</text>
+    </svg>
+  </section>
+
+</div>
+</body>
+</html>

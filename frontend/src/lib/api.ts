@@ -105,8 +105,8 @@ export const api = {
 
   overview: (repoId: string) => get<OverviewOut>(`/repositories/${repoId}/overview`),
 
-  scoreHistory: (repoId: string, periodDays = 30) =>
-    get<ScoreHistoryOut>(`/repositories/${repoId}/score_history`, { period_days: periodDays }),
+  scoreHistory: (repoId: string, periodDays = 30, bucket: "hour" | "day" | "week" = "day") =>
+    get<ScoreHistoryOut>(`/repositories/${repoId}/score_history`, { period_days: periodDays, bucket }),
 
   revertAnalysis: (repoId: string) =>
     get<RevertAnalysisOut>(`/repositories/${repoId}/revert_analysis`),

@@ -1,16 +1,17 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
-import type { ScoreHistoryPoint } from "../../lib/types";
-import { dayLabel } from "../../lib/format";
+import type { HistoryBucket, ScoreHistoryPoint } from "../../lib/types";
+import { bucketLabel } from "../../lib/format";
 
 interface Props {
   points: ScoreHistoryPoint[];
   height?: number;
+  bucket?: HistoryBucket;
 }
 
 /** Signature chart: health-over-time as lollipops (thin stem + dot), tabular axis,
  *  a soft 80/60 band to read tiers at a glance. Hand-built SVG — bespoke, tiny. */
-export function Lollipop({ points, height = 220 }: Props) {
+export function Lollipop({ points, height = 220, bucket = "day" }: Props) {
   const [hover, setHover] = useState<number | null>(null);
 
   if (!points.length) {
@@ -58,7 +59,7 @@ export function Lollipop({ points, height = 220 }: Props) {
               strokeWidth={1}
               strokeDasharray={g === 0 ? "0" : "3 4"}
             />
-            <text x={W - padX + 2} y={y(g) + 3} fontSize={10} fill="var(--color-ink-mute)" textAnchor="start">
+            <text x={W - 3} y={y(g) + 3} fontSize={10} fill="var(--color-ink-mute)" textAnchor="end">
               {g}
             </text>
           </g>
@@ -123,7 +124,7 @@ export function Lollipop({ points, height = 220 }: Props) {
                   fill="var(--color-ink-mute)"
                   textAnchor="middle"
                 >
-                  {dayLabel(p.day)}
+                  {bucketLabel(p.day, bucket)}
                 </text>
               )}
             </g>

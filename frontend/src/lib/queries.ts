@@ -5,7 +5,8 @@ export const keys = {
   repositories: ["repositories"] as const,
   needsAttention: ["needsAttention"] as const,
   overview: (repoId: string) => ["overview", repoId] as const,
-  scoreHistory: (repoId: string, days: number) => ["scoreHistory", repoId, days] as const,
+  scoreHistory: (repoId: string, days: number, bucket: string) =>
+    ["scoreHistory", repoId, days, bucket] as const,
   revertAnalysis: (repoId: string) => ["revertAnalysis", repoId] as const,
   prs: (repoId: string, opts?: object) => ["prs", repoId, opts ?? {}] as const,
   prDetail: (repoId: string, prId: string) => ["prDetail", repoId, prId] as const,
@@ -31,10 +32,14 @@ export function useOverview(repoId: string | undefined) {
   });
 }
 
-export function useScoreHistory(repoId: string | undefined, days = 30) {
+export function useScoreHistory(
+  repoId: string | undefined,
+  days = 30,
+  bucket: "hour" | "day" | "week" = "day",
+) {
   return useQuery({
-    queryKey: keys.scoreHistory(repoId ?? "—", days),
-    queryFn: () => api.scoreHistory(repoId!, days),
+    queryKey: keys.scoreHistory(repoId ?? "—", days, bucket),
+    queryFn: () => api.scoreHistory(repoId!, days, bucket),
     enabled: !!repoId,
   });
 }

@@ -498,9 +498,21 @@ class Repository:
             )
         return {"merged": merged_total, "reverted": reverted_total, "behaviours": behaviours}
 
-    def score_history(self, repo_id: str, period_days: int) -> list[dict]:
-        """Daily avg health + run count across the repo's analyses (Python bucketing,
-        portable across SQLite and Postgres)."""
+    @staticmethod
+    def _history_bucket_key(created_at, bucket: str) -> str:
+        """Bucket a timestamp by hour / day / week (Python, portable PG+SQLite)."""
+        if not hasattr(created_at, "date"):
+            return str(created_at)[:10]
+        if bucket == "hour":
+            return created_at.strftime("%Y-%m-%dT%H:00")
+        if bucket == "week":
+            d = created_at.date()
+            return (d - timedelta(days=d.weekday())).isoformat()  # Monday of that week
+        return created_at.date().isoformat()  # day
+
+    def score_history(self, repo_id: str, period_days: int, bucket: str = "day") -> list[dict]:
+        """Avg health + run count across the repo's analyses, bucketed by hour/day/week
+        (Python bucketing, portable across SQLite and Postgres)."""
         since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=period_days)
         rows = self.session.execute(
             select(orm.AnalysisScore.created_at, orm.AnalysisScore.health_score)
@@ -509,8 +521,8 @@ class Repository:
         ).all()
         buckets: dict[str, list] = {}
         for created_at, health in rows:
-            day = created_at.date().isoformat() if hasattr(created_at, "date") else str(created_at)[:10]
-            b = buckets.setdefault(day, [0, 0.0])
+            key = self._history_bucket_key(created_at, bucket)
+            b = buckets.setdefault(key, [0, 0.0])
             b[0] += 1
             b[1] += health
         return [

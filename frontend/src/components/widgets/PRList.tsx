@@ -35,8 +35,8 @@ export function PRList({ repoId, onSelect, limit = 14 }: Props) {
     if (!repoId) return;
     setExporting(true);
     try {
-      // Export the full list (not just the 14 shown). Plain GET — no auth needed.
-      const all = await api.prs(repoId, { limit: 1000 });
+      // Export the full list (not just the 14 shown). 500 is the backend's max page.
+      const all = await api.prs(repoId, { limit: 500 });
       const rows = all.map((pr) => ({
         pr_number: pr.provider_pr_id,
         title: pr.title,

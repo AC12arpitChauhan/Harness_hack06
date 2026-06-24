@@ -44,6 +44,16 @@ export function dayLabel(iso: string): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/** Format a score-history bucket key for the x-axis, per granularity.
+ *  hour key = "YYYY-MM-DDTHH:00" → "2 PM"; day/week key = "YYYY-MM-DD" → "Mon D". */
+export function bucketLabel(key: string, bucket: "hour" | "day" | "week" = "day"): string {
+  if (bucket === "hour") {
+    const d = new Date(key); // already carries the hour
+    return Number.isNaN(d.getTime()) ? key : d.toLocaleTimeString(undefined, { hour: "numeric" });
+  }
+  return dayLabel(key); // day → "Mon D"; week → the Monday of that week
+}
+
 /** Map a 0–100 score to a semantic health tier. */
 export function healthTier(n: number | null | undefined): "strong" | "fair" | "weak" | "none" {
   if (n === null || n === undefined || Number.isNaN(n)) return "none";
