@@ -1,5 +1,4 @@
 import { Card, CardHead } from "../primitives/Card";
-import { AnimatedNumber } from "../primitives/AnimatedNumber";
 import { HealthNumber } from "../primitives/Chip";
 import { Skeleton, EmptyState } from "../primitives/States";
 import { useAuthorStats } from "../../lib/queries";
@@ -37,17 +36,10 @@ export function AuthorSpotlight({ author }: { author: string | undefined }) {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
+          <div className="mt-6 grid grid-cols-1 gap-3">
             <div className="rounded-2xl bg-canvas p-4">
               <div className="eyebrow mb-2">Avg Health</div>
               <HealthNumber value={data?.avg_health_score} size={30} />
-            </div>
-            <div className="rounded-2xl bg-canvas p-4">
-              <div className="eyebrow mb-2">Avg Risk</div>
-              <AnimatedNumber
-                value={data?.avg_risk_score}
-                className="text-[30px] font-bold leading-none text-accent"
-              />
             </div>
           </div>
         </div>

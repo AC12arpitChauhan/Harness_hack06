@@ -90,14 +90,12 @@ function SettingsForm({ config }: { config: ScoringConfigOut }) {
   // Weights are edited as PERCENTS (0–100) for a friendlier UI; converted back to
   // fractions on save. Thresholds are edited as their raw numbers.
   const [healthW, setHealthW] = useState<Record<string, number>>(() => toPercent(config.health_weights));
-  const [riskW, setRiskW] = useState<Record<string, number>>(() => toPercent(config.risk_weights));
   const [thresholds, setThresholds] = useState<Record<string, number>>(() => ({ ...config.thresholds }));
   const [pending, setPending] = useState<"save" | "reset" | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const healthSum = Math.round(sum(Object.values(healthW)));
-  const riskSum = Math.round(sum(Object.values(riskW)));
 
   // The parameter the team currently treats as most important (highest weight).
   const topHealth = useMemo(() => {
@@ -118,7 +116,6 @@ function SettingsForm({ config }: { config: ScoringConfigOut }) {
     try {
       await api.saveScoringConfig({
         health_weights: normalize(healthW),
-        risk_weights: normalize(riskW),
         thresholds,
       });
       await queryClient.invalidateQueries({ queryKey: keys.scoringConfig });
@@ -179,13 +176,6 @@ function SettingsForm({ config }: { config: ScoringConfigOut }) {
         weights={healthW}
         total={healthSum}
         onChange={(k, v) => setHealthW((w) => ({ ...w, [k]: v }))}
-      />
-
-      <WeightCard
-        title="Risk weights — how much each area adds to risk"
-        weights={riskW}
-        total={riskSum}
-        onChange={(k, v) => setRiskW((w) => ({ ...w, [k]: v }))}
       />
 
       <div className="card p-6">

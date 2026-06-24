@@ -18,7 +18,6 @@ export function StatTiles({ repoId }: { repoId: string | undefined }) {
     { label: "Open", value: c?.open, accent: "var(--color-health)" },
     { label: "Merged", value: c?.merged, accent: "#6d4bd6" },
     { label: "Critical", value: c?.blocked, accent: "var(--color-risk)", hint: "high severity" },
-    { label: "Avg Risk", value: a?.risk, accent: "var(--color-accent)", hint: "lower is better" },
   ];
 
   return (

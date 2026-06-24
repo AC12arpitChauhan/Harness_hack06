@@ -65,7 +65,6 @@ def build_engine(settings: Settings, config: dict | None = None) -> ScoringEngin
     c = config or default_config(settings)
     return ScoringEngine(
         health_weights=c["health_weights"],
-        risk_weights=c["risk_weights"],
         blocked_cap=settings.blocked_cap,
     )
 

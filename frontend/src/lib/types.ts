@@ -11,7 +11,6 @@ export type SeverityValue =
 
 export interface ScoreSummary {
   health_score: number | null;
-  risk_score: number | null;
   review_quality_score: number | null;
   merge_readiness: number | null;
   blocking_reason: string | null;
@@ -79,7 +78,6 @@ export interface OverviewCounts {
 
 export interface OverviewAverages {
   health: number | null;
-  risk: number | null;
   review_quality: number | null;
   merge_readiness: number | null;
 }
@@ -126,7 +124,6 @@ export interface AuthorStatsOut {
   author: string;
   pr_count: number;
   avg_health_score: number | null;
-  avg_risk_score: number | null;
 }
 
 export interface MergeReadinessOut {
@@ -139,7 +136,6 @@ export interface MergeReadinessOut {
 
 export interface ScoringConfigOut {
   health_weights: Record<string, number>;
-  risk_weights: Record<string, number>;
   severity_penalties: Record<string, number>;
   blocked_cap: number;
   ready_threshold: number;
@@ -149,7 +145,6 @@ export interface ScoringConfigOut {
 
 export interface ScoringConfigUpdate {
   health_weights: Record<string, number>;
-  risk_weights: Record<string, number>;
   thresholds: Record<string, number>;
 }
 

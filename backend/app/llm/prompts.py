@@ -90,7 +90,6 @@ def build_user(pr: PullRequest, signals: list[AnalysisSignal], score: Score) -> 
         f"Author: {pr.author} | {pr.source_branch} -> {pr.target_branch} | state: {pr.state.value}\n\n"
         f"Scores (0-100, do not change these):\n"
         f"- health: {score.health_score}\n"
-        f"- risk: {score.risk_score}\n"
         f"- review_quality: {score.review_quality_score}\n"
         f"- merge_readiness: {score.merge_readiness}\n"
         f"- hard blocker: {blocker}\n\n"

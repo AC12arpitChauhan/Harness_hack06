@@ -129,7 +129,6 @@ class AnalysisScore(Base):
     )
     pr_id: Mapped[str] = mapped_column(ForeignKey("pull_requests.id"), index=True)
     health_score: Mapped[float] = mapped_column(Float)
-    risk_score: Mapped[float] = mapped_column(Float)
     review_quality_score: Mapped[float] = mapped_column(Float)
     merge_readiness: Mapped[float] = mapped_column(Float)
     score_breakdown_json: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -190,7 +189,6 @@ class ScoringConfig(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)  # always "global"
     health_weights_json: Mapped[dict] = mapped_column(JSON, default=dict)
-    risk_weights_json: Mapped[dict] = mapped_column(JSON, default=dict)
     thresholds_json: Mapped[dict] = mapped_column(JSON, default=dict)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 

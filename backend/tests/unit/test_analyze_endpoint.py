@@ -96,7 +96,6 @@ def test_analyze_returns_scores_and_persists(client, auth_headers, monkeypatch):
     assert body["pr_number"] == 7
     # Phase A: only merge_speed is enabled -> other dimensions default to perfect.
     assert body["scores"]["health_score"] == 90.0
-    assert body["scores"]["risk_score"] == 10.0
     assert body["scores"]["review_quality_score"] == 100.0
     assert body["scores"]["merge_readiness"] == 90.0
     assert body["scores"]["blocking_reason"] is None
