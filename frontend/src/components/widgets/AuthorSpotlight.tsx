@@ -1,5 +1,5 @@
 import { Card, CardHead } from "../primitives/Card";
-import { HealthNumber } from "../primitives/Chip";
+import { ArcGauge } from "../primitives/ArcGauge";
 import { Skeleton, EmptyState } from "../primitives/States";
 import { useAuthorStats } from "../../lib/queries";
 
@@ -36,10 +36,9 @@ export function AuthorSpotlight({ author }: { author: string | undefined }) {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-3">
-            <div className="rounded-2xl bg-canvas p-4">
-              <div className="eyebrow mb-2">Avg Health</div>
-              <HealthNumber value={data?.avg_health_score} size={30} />
+          <div className="mt-6 flex flex-1 flex-col">
+            <div className="flex flex-1 flex-col items-center justify-center rounded-2xl bg-canvas p-5">
+              <ArcGauge value={data?.avg_health_score} label="Avg Health" size={172} />
             </div>
           </div>
         </div>

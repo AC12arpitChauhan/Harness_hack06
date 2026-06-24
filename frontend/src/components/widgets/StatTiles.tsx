@@ -21,7 +21,7 @@ export function StatTiles({ repoId }: { repoId: string | undefined }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4">
       {tiles.map((t, i) => (
         <Card key={t.label} index={i + 1} className="!p-5">
           {isLoading ? (
