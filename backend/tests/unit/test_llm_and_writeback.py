@@ -131,7 +131,6 @@ def test_scores_identical_regardless_of_llm(repository):
     result = _run(repository)
     before = (
         result.score.health_score,
-        result.score.risk_score,
         result.score.review_quality_score,
         result.score.merge_readiness,
     )
@@ -143,7 +142,7 @@ def test_scores_identical_regardless_of_llm(repository):
             provider=RecordingProvider(), writeback_enabled=False, ready_threshold=70.0,
         )
         row = repository.latest_score_for_pr(result.pr_id)
-        assert (row.health_score, row.risk_score, row.review_quality_score, row.merge_readiness) == before
+        assert (row.health_score, row.review_quality_score, row.merge_readiness) == before
 
     # a narrative was persisted (last writer wins)
     assert repository.narrative_for_pr(result.pr_id) is not None

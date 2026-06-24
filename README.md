@@ -1,7 +1,7 @@
 # PR Vitals.   | Engineering Quality Analytics
 
 > **The vital signs of how your team ships code.** A deterministic health score for every
-> pull request — across **GitHub** *and* **Harness Code** — with an AI that explains the risk
+> pull request — across **GitHub** *and* **Harness Code** — with an AI that explains the score
 > and tells you how to fix a failing build.
 
 **▶ Live dashboard:** http://34.11.187.253/
@@ -30,7 +30,7 @@ This product answers the three questions leadership actually asks:
 
 ## What it does
 
-- **Deterministic PR scoring** — Health / Risk / Review-quality / Merge-readiness for every PR.
+- **Deterministic PR scoring** — Health / Review-quality / Merge-readiness for every PR.
 - **Needs-attention ranking** — repos ranked by weighted build-violation rate (≥5 merged PRs to flag).
 - **Revert correlation** — which good practices lead to fewer reverts (`Revert … #N` detection).
 - **AI fix suggester** — when CI fails, Claude reads the failing checks and writes concrete fix steps (in the PR drawer + the PR comment).
@@ -47,7 +47,7 @@ signals → severity penalty → per-analyzer sub-score → weighted scores
 INFO 0 · LOW 5 · MEDIUM 15 · HIGH 30 · CRITICAL 50
 subscore(analyzer) = max(0, 100 − Σ penalties)
 health_score = Σ weightᴴ · subscore        review_quality_score = subscore(review_quality)
-risk_score   = Σ weightᴿ · (100 − subscore) merge_readiness = health (capped at 15 if a hard blocker fires)
+merge_readiness = health_score (capped at 15 if a hard blocker fires)
 ready = merge_readiness ≥ 70  AND  no hard blocker
 ```
 

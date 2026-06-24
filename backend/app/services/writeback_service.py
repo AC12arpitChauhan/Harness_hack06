@@ -31,9 +31,9 @@ def render_comment(
     lines = [
         f"## PR Health: {score.health_score:.0f}/100 {badge}",
         "",
-        f"| Health | Risk | Review quality | Merge readiness |",
-        f"|---|---|---|---|",
-        f"| {score.health_score:.0f} | {score.risk_score:.0f} | "
+        f"| Health | Review quality | Merge readiness |",
+        f"|---|---|---|",
+        f"| {score.health_score:.0f} | "
         f"{score.review_quality_score:.0f} | {score.merge_readiness:.0f} |",
     ]
     if score.blocking_reason:

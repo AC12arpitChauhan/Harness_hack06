@@ -34,9 +34,8 @@ Computed in one readable function — `scoring/engine.py:ScoringEngine.compute`.
 1. Each analyzer's **sub-score** = `max(0, 100 − Σ penalties of its signals)`.
 2. **health_score** = weighted avg of sub-scores
    (`merge_speed .20, change_size .25, review_quality .35, ci_status .20`).
-3. **risk_score** = weighted "badness" (`Σ risk_weight · (100 − sub-score)`).
-4. **review_quality_score** = the `review_quality` sub-score.
-5. **merge_readiness** = `health_score`, but capped to **15** when a hard blocker
+3. **review_quality_score** = the `review_quality` sub-score.
+4. **merge_readiness** = `health_score`, but capped to **15** when a hard blocker
    fires (`scoring/policies.py`: required CI failing, merged-despite-failure, or an
    un-reviewed non-trivial change). `blocking_reason` records why.
 

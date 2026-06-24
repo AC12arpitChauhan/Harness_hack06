@@ -74,9 +74,8 @@ def test_ticket_linkage_is_surfaced_but_zero_weight():
     engine = ScoringEngine()
     before = engine.compute(others)
     after = engine.compute(all_signals)
-    assert (after.health_score, after.risk_score, after.review_quality_score, after.merge_readiness) == (
+    assert (after.health_score, after.review_quality_score, after.merge_readiness) == (
         before.health_score,
-        before.risk_score,
         before.review_quality_score,
         before.merge_readiness,
     )
