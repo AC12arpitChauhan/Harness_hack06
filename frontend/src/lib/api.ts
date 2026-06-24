@@ -106,7 +106,12 @@ export const api = {
   overview: (repoId: string) => get<OverviewOut>(`/repositories/${repoId}/overview`),
 
   scoreHistory: (repoId: string, periodDays = 30, bucket: "hour" | "day" | "week" = "day") =>
-    get<ScoreHistoryOut>(`/repositories/${repoId}/score_history`, { period_days: periodDays, bucket }),
+    get<ScoreHistoryOut>(`/repositories/${repoId}/score_history`, {
+      period_days: periodDays,
+      bucket,
+      // bucket in the viewer's timezone (e.g. IST), not UTC.
+      tz_offset_minutes: new Date().getTimezoneOffset(),
+    }),
 
   revertAnalysis: (repoId: string) =>
     get<RevertAnalysisOut>(`/repositories/${repoId}/revert_analysis`),

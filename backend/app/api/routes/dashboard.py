@@ -263,11 +263,12 @@ def score_history(
     repo_id: str,
     period_days: int = Query(default=30, ge=1, le=365),
     bucket: str = Query(default="day"),
+    tz_offset_minutes: int = Query(default=0, ge=-840, le=840),
     repository: Repository = Depends(repository_dep),
 ) -> ScoreHistoryOut:
     _require_repo(repository, repo_id)
     bucket = bucket if bucket in {"hour", "day", "week"} else "day"
-    points = repository.score_history(repo_id, period_days, bucket)
+    points = repository.score_history(repo_id, period_days, bucket, tz_offset_minutes)
     return ScoreHistoryOut(repo_id=repo_id, period_days=period_days, bucket=bucket, points=points)
 
 

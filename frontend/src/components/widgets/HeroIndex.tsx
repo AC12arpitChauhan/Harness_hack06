@@ -132,7 +132,7 @@ export function HeroIndex({ repoId }: { repoId: string | undefined }) {
           ) : history.isError ? (
             <ErrorState message="Couldn't load history." onRetry={() => history.refetch()} />
           ) : (
-            <Lollipop points={points} height={210} bucket={cfg.bucket} />
+            <Lollipop points={points} height={210} bucket={cfg.bucket} windowDays={cfg.days} />
           )}
         </div>
       </div>

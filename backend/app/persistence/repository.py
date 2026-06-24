@@ -510,9 +510,13 @@ class Repository:
             return (d - timedelta(days=d.weekday())).isoformat()  # Monday of that week
         return created_at.date().isoformat()  # day
 
-    def score_history(self, repo_id: str, period_days: int, bucket: str = "day") -> list[dict]:
+    def score_history(
+        self, repo_id: str, period_days: int, bucket: str = "day", tz_offset_minutes: int = 0
+    ) -> list[dict]:
         """Avg health + run count across the repo's analyses, bucketed by hour/day/week
-        (Python bucketing, portable across SQLite and Postgres)."""
+        in the VIEWER's timezone (so hours/days align to local wall-clock, not UTC).
+        ``tz_offset_minutes`` is JS ``getTimezoneOffset()`` (e.g. -330 for IST).
+        Python bucketing — portable across SQLite and Postgres; keys are local wall-clock."""
         since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=period_days)
         rows = self.session.execute(
             select(orm.AnalysisScore.created_at, orm.AnalysisScore.health_score)
@@ -521,7 +525,10 @@ class Repository:
         ).all()
         buckets: dict[str, list] = {}
         for created_at, health in rows:
-            key = self._history_bucket_key(created_at, bucket)
+            ts = created_at
+            if tz_offset_minutes and hasattr(ts, "date"):
+                ts = ts - timedelta(minutes=tz_offset_minutes)  # UTC → local wall-clock
+            key = self._history_bucket_key(ts, bucket)
             b = buckets.setdefault(key, [0, 0.0])
             b[0] += 1
             b[1] += health

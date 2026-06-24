@@ -44,14 +44,24 @@ export function dayLabel(iso: string): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** Format a score-history bucket key for the x-axis, per granularity.
- *  hour key = "YYYY-MM-DDTHH:00" → "2 PM"; day/week key = "YYYY-MM-DD" → "Mon D". */
+/** Parse a score-history bucket key. Keys are already LOCAL wall-clock (the backend
+ *  bucketed in the viewer's tz), so parse without a 'Z'. */
+export function bucketTime(key: string): number {
+  const iso = key.length <= 10 ? `${key}T00:00:00` : key; // date-only → midnight
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/** Format a bucket key for the x-axis, per granularity (local time).
+ *  hour → "Jun 23, 5 AM" (date keeps two same-hour days distinct); day/week → "Jun 23". */
 export function bucketLabel(key: string, bucket: "hour" | "day" | "week" = "day"): string {
+  const t = bucketTime(key);
+  if (!t) return key;
+  const d = new Date(t);
   if (bucket === "hour") {
-    const d = new Date(key); // already carries the hour
-    return Number.isNaN(d.getTime()) ? key : d.toLocaleTimeString(undefined, { hour: "numeric" });
+    return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric" });
   }
-  return dayLabel(key); // day → "Mon D"; week → the Monday of that week
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 /** Map a 0–100 score to a semantic health tier. */
