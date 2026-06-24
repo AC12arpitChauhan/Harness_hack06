@@ -210,10 +210,9 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
                     )}
                   </div>
 
-                  {/* four scores */}
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {/* scores */}
+                  <div className="grid grid-cols-3 gap-3">
                     <ScoreMeter label="Health" value={d.score?.health_score} />
-                    <ScoreMeter label="Risk" value={d.score?.risk_score} invert />
                     <ScoreMeter label="Review" value={d.score?.review_quality_score} />
                     <ScoreMeter label="Readiness" value={d.score?.merge_readiness} />
                   </div>
