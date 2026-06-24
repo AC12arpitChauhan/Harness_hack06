@@ -30,7 +30,7 @@ export function StateChip({ state }: { state: string }) {
   );
 }
 
-/** Ready / blocked verdict pill. */
+/** Ready / critical verdict pill (no "blocked" framing — we surface severity). */
 export function ReadyPill({ ready }: { ready: boolean }) {
   return (
     <span
@@ -41,7 +41,7 @@ export function ReadyPill({ ready }: { ready: boolean }) {
       className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold"
     >
       <Dot color={ready ? "var(--color-health)" : "var(--color-risk)"} />
-      {ready ? "Ready to merge" : "Blocked"}
+      {ready ? "Ready to merge" : "Critical"}
     </span>
   );
 }

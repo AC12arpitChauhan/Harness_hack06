@@ -209,11 +209,44 @@ def ai_fix(
     if not failing:
         return AIFixOut(pr_id=pr_id, has_failures=False, failing_checks=[], suggestion="", model="")
 
-    fc_dicts = [{"name": c.check_name, "status": c.status, "url": c.url} for c in failing]
+    fc_dicts = [
+        {
+            "name": c.check_name,
+            "status": c.status,
+            "url": c.url,
+            "summary": (c.metadata_json or {}).get("summary"),
+        }
+        for c in failing
+    ]
+
+    # Give the model the context we already persisted: what changed, the CI signal
+    # detail, and the description — so it reasons instead of saying "insufficient info".
+    ctx: list[str] = []
+    if pr.description:
+        ctx.append("PR description:\n" + pr.description.strip()[:600])
+    diff = repository.diff_for_pr(pr_id)
+    if diff and diff.files_json:
+        files = [f.get("filename") for f in diff.files_json if f.get("filename")][:25]
+        if files:
+            ctx.append(
+                f"Changed files ({diff.files_changed} files, +{diff.additions}/-{diff.deletions}):\n"
+                + "\n".join(f"  - {f}" for f in files)
+            )
+    run = repository.latest_run_for_pr(pr_id)
+    if run:
+        ci_detail = [
+            s.explanation
+            for s in repository.signals_for_run(run.id)
+            if s.signal_name.startswith("ci_status") and s.exceeds_threshold and s.explanation
+        ]
+        if ci_detail:
+            ctx.append("CI signal detail:\n" + "\n".join(f"  - {e}" for e in ci_detail))
+    context = "\n\n".join(ctx) or None
+
     narrator = build_narrator(settings)
     model_label = getattr(narrator, "model", None) or "templated-fallback"
     try:
-        suggestion = narrator.suggest_fix(fc_dicts, pr_title=pr.title)
+        suggestion = narrator.suggest_fix(fc_dicts, pr_title=pr.title, log_text=context)
     except Exception:  # LLM error (e.g. bad key) — degrade to deterministic guidance
         suggestion = prompts.templated_fix(fc_dicts, pr.title)
         model_label = "templated-fallback"

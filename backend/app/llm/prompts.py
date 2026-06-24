@@ -22,19 +22,23 @@ SYSTEM = (
 # --- AI "fix this failing build" suggester (distinct from the health narrative) ---
 SUGGEST_FIX_SYSTEM = (
     "You are a senior CI/build engineer helping a developer get a failing pull "
-    "request build to pass. You are given the PR title, the names and statuses of "
-    "the checks that failed, and any available log output. Respond with: (1) one "
-    "line naming the most likely cause, then (2) numbered, concrete fix steps with "
-    "code/config snippets where useful. Be concise and specific. If the cause is "
-    "ambiguous, list the most likely causes in priority order. Do NOT invent log "
-    "lines or errors that were not provided."
+    "request build to pass. You are given the PR title, the failing checks (with any "
+    "summaries), the CHANGED FILES, and CI signal detail. USE ALL OF IT. If no raw "
+    "log is available, infer the most likely causes from the changed files and the "
+    "check summaries — and if a failing check looks UNRELATED to the diff (e.g. a "
+    "docs-only change with a build failure), say so explicitly (likely flaky / "
+    "pre-existing / misconfigured pipeline) rather than guessing at the code. "
+    "Respond with: (1) one line naming the most likely cause, then (2) numbered, "
+    "concrete fix steps with code/config snippets where useful. Be concise and "
+    "specific. Do NOT fabricate specific log lines you were not given."
 )
 
 
 def build_fix_user(
     failing_checks: list[dict], pr_title: str | None = None, log_text: str | None = None
 ) -> str:
-    """User prompt for SUGGEST_FIX_SYSTEM. ``failing_checks`` are {name, status, url} dicts."""
+    """User prompt for SUGGEST_FIX_SYSTEM. ``failing_checks`` are {name, status, url, summary}
+    dicts; ``log_text`` carries extra context (changed files, CI signal detail, description)."""
     lines: list[str] = []
     if pr_title:
         lines.append(f"PR title: {pr_title}")
@@ -42,10 +46,15 @@ def build_fix_user(
     for c in failing_checks or []:
         name = c.get("name") or "(unnamed check)"
         status = c.get("status")
-        lines.append(f"  - {name}" + (f" [{status}]" if status else ""))
+        line = f"  - {name}" + (f" [{status}]" if status else "")
+        if c.get("summary"):
+            line += f" — {c['summary']}"
+        lines.append(line)
     if log_text:
-        lines.append("\nStep log (tail):\n" + log_text[-4000:])
-    lines.append("\nSuggest concrete changes to make this build pass.")
+        lines.append("\nContext:\n" + log_text[-4000:])
+    lines.append(
+        "\nUsing the title, failing checks, and context above, give concrete steps to make this build pass."
+    )
     return "\n".join(lines)
 
 

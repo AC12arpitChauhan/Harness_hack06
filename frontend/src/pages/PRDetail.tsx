@@ -228,14 +228,19 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
                       {mr.data && <ReadyPill ready={mr.data.ready} />}
                     </div>
                     {mr.data && mr.data.blocking_signals.length > 0 && (
-                      <ul className="mt-3 flex flex-col gap-1.5">
-                        {mr.data.blocking_signals.map((s, i) => (
-                          <li key={i} className="flex items-start gap-2 text-[13px] text-ink">
-                            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-risk" />
-                            {humanizeSignal(s)}
-                          </li>
-                        ))}
-                      </ul>
+                      <>
+                        <div className="mb-2 mt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-risk">
+                          Critical ({mr.data.blocking_signals.length})
+                        </div>
+                        <ul className="flex flex-col gap-1.5">
+                          {mr.data.blocking_signals.map((s, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[13px] text-ink">
+                              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-risk" />
+                              {humanizeSignal(s)}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
                     )}
                   </div>
 

@@ -67,6 +67,7 @@ class Check:
     required: bool = False
     completed_at: datetime | None = None
     url: str | None = None
+    summary: str | None = None  # check output/summary text (feeds the AI fix suggester)
 
 
 @dataclass(frozen=True)

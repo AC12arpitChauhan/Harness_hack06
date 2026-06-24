@@ -128,6 +128,7 @@ def map_checks(checks: list[dict], required_checks: list[str]) -> list[Check]:
             required = bool(c["required"])
         else:
             required = (not required_checks) or (name in required_checks)
+        payload = c.get("payload") or {}
         out.append(
             Check(
                 name=name,
@@ -135,6 +136,7 @@ def map_checks(checks: list[dict], required_checks: list[str]) -> list[Check]:
                 required=required,
                 completed_at=_dt_ms(c.get("ended")),
                 url=c.get("link"),
+                summary=c.get("summary") or (payload.get("data") if isinstance(payload.get("data"), str) else None),
             )
         )
     return out

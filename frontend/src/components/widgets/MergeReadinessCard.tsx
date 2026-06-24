@@ -15,7 +15,7 @@ export function MergeReadinessCard({ repoId, prId }: Props) {
   const { data, isLoading, isError } = useMergeReadiness(repoId, prId);
 
   return (
-    <Card index={5} className="flex h-full flex-col">
+    <Card index={5} className="flex h-full flex-col border-2 border-hair-strong">
       <CardHead eyebrow="Featured PR" title="Merge readiness" />
 
       {isLoading ? (
@@ -27,7 +27,7 @@ export function MergeReadinessCard({ repoId, prId }: Props) {
         <EmptyState title="No analysis yet" hint="This PR hasn't been scored." />
       ) : (
         <div className="mt-3 flex flex-1 flex-col items-center">
-          <ArcGauge value={data.merge_readiness} label="readiness" size={172} />
+          <ArcGauge value={data.merge_readiness} label="readiness" size={190} stroke={22} />
           <div className="mt-4">
             <ReadyPill ready={data.ready} />
           </div>
@@ -36,13 +36,13 @@ export function MergeReadinessCard({ repoId, prId }: Props) {
             {data.blocking_signals.length === 0 ? (
               <div className="flex items-center justify-center gap-2 rounded-2xl bg-health-soft px-4 py-3 text-[13px] font-semibold text-health">
                 <ShieldCheck size={16} />
-                No blocking conditions
+                No critical issues
               </div>
             ) : (
               <div className="rounded-2xl bg-risk-soft p-4">
                 <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-risk">
                   <ShieldAlert size={14} />
-                  Blocking ({data.blocking_signals.length})
+                  Critical ({data.blocking_signals.length})
                 </div>
                 <ul className="flex flex-col gap-1.5">
                   {data.blocking_signals.map((s, i) => (

@@ -118,7 +118,7 @@ class Repository:
                     status=c.status.value,
                     completed_at=_naive(c.completed_at),
                     url=c.url,
-                    metadata_json={"required": c.required},
+                    metadata_json={"required": c.required, "summary": c.summary},
                 )
             )
 

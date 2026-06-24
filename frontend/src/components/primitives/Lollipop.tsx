@@ -109,19 +109,19 @@ export function Lollipop({ points, height = 220, bucket = "day", windowDays }: P
                 animate={{ y2: cy }}
                 transition={{ duration: 0.7, delay: i * 0.03, ease: [0.16, 1, 0.3, 1] }}
                 stroke={col}
-                strokeWidth={active ? 3 : 2}
+                strokeWidth={active ? 5 : 3.5}
                 strokeLinecap="round"
-                opacity={active ? 1 : 0.6}
+                opacity={active ? 1 : 0.7}
               />
               <motion.circle
                 cx={cx}
                 initial={{ cy: padTop + innerH, opacity: 0 }}
                 animate={{ cy, opacity: 1 }}
                 transition={{ duration: 0.7, delay: i * 0.03, ease: [0.16, 1, 0.3, 1] }}
-                r={active ? 6 : 4.5}
+                r={active ? 8 : 6}
                 fill={col}
                 stroke="var(--color-surface)"
-                strokeWidth={2}
+                strokeWidth={2.5}
               />
               {active && (
                 <>

@@ -20,7 +20,7 @@ export function SeverityBar({ rows, max }: Props) {
       {rows.map((r, i) => (
         <div key={r.label} className="flex items-center gap-3">
           <span className="w-20 shrink-0 text-[12px] font-medium text-ink-soft">{r.label}</span>
-          <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-canvas-deep">
+          <div className="relative h-3.5 flex-1 overflow-hidden rounded-full bg-canvas-deep">
             <motion.div
               className="absolute inset-y-0 left-0 rounded-full"
               style={{ background: r.color }}

@@ -17,7 +17,7 @@ export function StatTiles({ repoId }: { repoId: string | undefined }) {
     { label: "Total PRs", value: c?.total, accent: "var(--color-ink)" },
     { label: "Open", value: c?.open, accent: "var(--color-health)" },
     { label: "Merged", value: c?.merged, accent: "#6d4bd6" },
-    { label: "Blocked", value: c?.blocked, accent: "var(--color-risk)" },
+    { label: "Critical", value: c?.blocked, accent: "var(--color-risk)", hint: "high severity" },
     { label: "Avg Risk", value: a?.risk, accent: "var(--color-accent)", hint: "lower is better" },
   ];
 

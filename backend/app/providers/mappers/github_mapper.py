@@ -139,6 +139,7 @@ def map_checks(check_runs_payload: dict, required_checks: list[str]) -> list[Che
     for run in runs:
         name = run.get("name", "")
         required = (not required_checks) or (name in required_checks)
+        output = run.get("output") or {}
         out.append(
             Check(
                 name=name,
@@ -146,6 +147,7 @@ def map_checks(check_runs_payload: dict, required_checks: list[str]) -> list[Che
                 required=required,
                 completed_at=_dt(run.get("completed_at")),
                 url=run.get("html_url"),
+                summary=output.get("summary") or output.get("title"),
             )
         )
     return out
