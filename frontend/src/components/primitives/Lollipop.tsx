@@ -26,40 +26,45 @@ export function Lollipop({ points, height = 220, bucket = "day", windowDays }: P
   }
 
   const padX = 16;
-  const padRight = 30; // room for the y-axis labels
+  const padRight = 30;
   const padTop = 18;
   const padBottom = 30;
-  const W = 720; // viewBox width
+  const W = 720;
   const innerW = W - padX - padRight;
   const innerH = height - padTop - padBottom;
   const n = points.length;
 
   const y = (v: number) => padTop + innerH * (1 - Math.max(0, Math.min(100, v)) / 100);
 
-  // X position: by REAL time across the lookback window when we know it; the window
-  // is padded slightly on each side so a lone/edge point isn't glued to the border.
-  let xs: number[];
+  // X by REAL time across the window (padded a touch), else even index spacing.
   const times = points.map((p) => bucketTime(p.day));
-  if (windowDays && times.every((t) => t > 0)) {
-    const t1 = Date.now();
-    const span = windowDays * 86_400_000;
-    const t0 = t1 - span;
-    const pad = span * 0.04;
-    const lo = t0 - pad;
-    const hi = t1 + pad;
-    xs = times.map((t) => {
-      const f = Math.min(1, Math.max(0, (t - lo) / (hi - lo)));
-      return padX + f * innerW;
-    });
-  } else {
-    const step = n > 1 ? innerW / (n - 1) : 0;
-    xs = points.map((_, i) => (n > 1 ? padX + i * step : padX + innerW / 2));
-  }
+  const useTime = !!windowDays && times.every((t) => t > 0);
+  const t1 = Date.now();
+  const span = (windowDays ?? 1) * 86_400_000;
+  const lo = t1 - span - span * 0.04;
+  const hi = t1 + span * 0.04;
+  const xOf = (t: number) => padX + Math.min(1, Math.max(0, (t - lo) / (hi - lo))) * innerW;
+  const xs = useTime
+    ? times.map(xOf)
+    : points.map((_, i) => (n > 1 ? padX + (i * innerW) / (n - 1) : padX + innerW / 2));
+
+  // Bottom axis: a FIXED, evenly-spaced set of time ticks — never overlaps, even when
+  // the data points cluster. (Hover a point for its exact time + score.)
+  const fmtTick = (t: number) =>
+    bucket === "hour"
+      ? new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric" })
+      : new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const TICKS = 4;
+  const clampX = (v: number) => Math.min(Math.max(v, 44), padX + innerW - 44);
+  const ticks = useTime
+    ? Array.from({ length: TICKS }, (_, k) => {
+        const f = k / (TICKS - 1);
+        return { x: padX + f * innerW, label: fmtTick(lo + f * (hi - lo)) };
+      })
+    : (n > 1 ? [0, n - 1] : [0]).map((i) => ({ x: xs[i], label: bucketLabel(points[i].day, bucket) }));
 
   const tierColor = (v: number) =>
     v >= 80 ? "var(--color-health)" : v >= 60 ? "var(--color-sev-medium)" : "var(--color-risk)";
-
-  const labelEvery = Math.max(1, Math.ceil(n / 8));
 
   return (
     <div className="w-full">
@@ -119,32 +124,46 @@ export function Lollipop({ points, height = 220, bucket = "day", windowDays }: P
                 strokeWidth={2}
               />
               {active && (
-                <text
-                  x={cx}
-                  y={cy - 12}
-                  fontSize={13}
-                  fontWeight={700}
-                  fill="var(--color-ink)"
-                  textAnchor="middle"
-                  className="tnum"
-                >
-                  {Math.round(p.avg_health)}
-                </text>
-              )}
-              {(i % labelEvery === 0 || i === n - 1) && (
-                <text
-                  x={Math.min(Math.max(cx, 26), padX + innerW - 4)}
-                  y={height - 10}
-                  fontSize={10}
-                  fill="var(--color-ink-mute)"
-                  textAnchor="middle"
-                >
-                  {bucketLabel(p.day, bucket)}
-                </text>
+                <>
+                  <text
+                    x={clampX(cx)}
+                    y={cy - 28}
+                    fontSize={10}
+                    fill="var(--color-ink-mute)"
+                    textAnchor="middle"
+                  >
+                    {bucketLabel(p.day, bucket)}
+                  </text>
+                  <text
+                    x={clampX(cx)}
+                    y={cy - 13}
+                    fontSize={13}
+                    fontWeight={700}
+                    fill="var(--color-ink)"
+                    textAnchor="middle"
+                    className="tnum"
+                  >
+                    {Math.round(p.avg_health)}
+                  </text>
+                </>
               )}
             </g>
           );
         })}
+
+        {/* fixed time axis */}
+        {ticks.map((t, k) => (
+          <text
+            key={k}
+            x={clampX(t.x)}
+            y={height - 10}
+            fontSize={10}
+            fill="var(--color-ink-mute)"
+            textAnchor="middle"
+          >
+            {t.label}
+          </text>
+        ))}
       </svg>
     </div>
   );
