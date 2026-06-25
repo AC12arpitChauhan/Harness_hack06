@@ -252,6 +252,33 @@ class RevertAnalysisOut(BaseModel):
     behaviours: list[BehaviourCorrelation] = []
 
 
+class SimilarPRItem(BaseModel):
+    """One historical PR that resembles the target, with its outcome."""
+    pr_id: str
+    provider_pr_id: str
+    title: str
+    state: str
+    similarity: float  # 0..1 (file + title + size affinity)
+    health_score: float | None = None
+    reverted: bool = False
+
+
+class SimilarPRsSummary(BaseModel):
+    neighbor_count: int = 0
+    reverted_count: int = 0
+    reverted_rate: float | None = None  # % of neighbours later reverted
+    avg_health_score: float | None = None
+
+
+class SimilarPRsOut(BaseModel):
+    """The target PR's nearest historical neighbours (no embeddings — pure feature
+    overlap) plus an outcome roll-up. Read-only context for reviewers: "this change
+    resembles N past PRs, M of which were reverted." Does not affect any score."""
+    pr_id: str
+    neighbors: list[SimilarPRItem] = []
+    summary: SimilarPRsSummary
+
+
 class LLMCheckOut(BaseModel):
     """Synchronous diagnostic for the /analyze -> narrate path. `ok` means a live
     round-trip to the configured narrator succeeded; `error` carries the real

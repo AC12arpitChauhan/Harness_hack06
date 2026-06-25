@@ -28,6 +28,7 @@ from app.api.schemas import (
     ScoreSummary,
     SignalOut,
     SignalTrendOut,
+    SimilarPRsOut,
 )
 from app.config import Settings
 from app.llm import prompts
@@ -40,6 +41,7 @@ from app.services.scoring_config import (
     sanitize_thresholds,
     sanitize_weights,
 )
+from app.services.similarity_service import similar_prs
 
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
@@ -136,6 +138,23 @@ def pr_detail(
             else None
         ),
     )
+
+
+@router.get("/repositories/{repo_id}/prs/{pr_id}/similar", response_model=SimilarPRsOut)
+def similar_pull_requests(
+    repo_id: str,
+    pr_id: str,
+    k: int = Query(default=5, ge=1, le=20),
+    repository: Repository = Depends(repository_dep),
+) -> SimilarPRsOut:
+    """The PR's nearest historical neighbours by feature overlap (no embeddings/API),
+    with an outcome roll-up (avg health, how many were later reverted). Open read;
+    surfacing-only — it never changes a score."""
+    _require_repo(repository, repo_id)
+    pr = repository.get_pull_request(pr_id)
+    if pr is None or pr.repo_id != repo_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "PR not found")
+    return SimilarPRsOut(**similar_prs(repository, repo_id, pr_id, k))
 
 
 @router.get("/repositories/{repo_id}/signal_trends", response_model=SignalTrendOut)

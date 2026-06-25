@@ -1,0 +1,54 @@
+<svg width="680" height="632" viewBox="0 0 680 632" xmlns="http://www.w3.org/2000/svg">
+<style>
+  text{font-family:'Helvetica Neue',Arial,sans-serif}
+  .t{font-size:14px;font-weight:400}
+  .th{font-size:14px;font-weight:500}
+  .ts{font-size:12px;font-weight:400}
+  .reg{font-size:14px;font-weight:500;fill:#2C2C2A}
+  .arl{font-size:12px;font-weight:400;fill:#5F5E5A}
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="0" y="0" width="680" height="632" fill="#FFFFFF"/>
+
+<g><rect x="190" y="44" width="300" height="46" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/><text class="th" x="340" y="65" text-anchor="middle" fill="#444441">Browser — React + TypeScript</text><text class="ts" x="340" y="81" text-anchor="middle" fill="#5F5E5A">Dashboard · PR detail · Settings</text></g>
+
+<line x1="340" y1="90" x2="340" y2="114" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text class="arl" x="350" y="106" text-anchor="start">REST · writes need Bearer</text>
+
+<g><rect x="190" y="116" width="300" height="52" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/><text class="th" x="340" y="138" text-anchor="middle" fill="#444441">FastAPI app</text><text class="ts" x="340" y="156" text-anchor="middle" fill="#5F5E5A">analyze (auth) · dashboard (reads)</text></g>
+
+<line x1="340" y1="168" x2="340" y2="192" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<g><rect x="190" y="194" width="300" height="54" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/><text class="th" x="340" y="216" text-anchor="middle" fill="#444441">Application services</text><text class="ts" x="340" y="234" text-anchor="middle" fill="#5F5E5A">sync scoring · async narrate</text></g>
+
+<line x1="282" y1="248" x2="190" y2="288" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text class="arl" x="150" y="276" text-anchor="start">signals → score</text>
+
+<line x1="404" y1="248" x2="498" y2="288" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text class="arl" x="470" y="274" text-anchor="start">fetch · persist · narrate</text>
+
+<rect x="40" y="290" width="276" height="204" rx="8" fill="none" stroke="#5DCAA5" stroke-width="0.5" stroke-dasharray="4 4"/>
+<text class="reg" x="54" y="308" text-anchor="start">Pure core — stdlib only</text>
+<g><rect x="54" y="316" width="248" height="48" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/><text class="th" x="68" y="336" text-anchor="start" fill="#085041">domain</text><text class="ts" x="68" y="353" text-anchor="start" fill="#0F6E56">models · signals · scores</text></g>
+<g><rect x="54" y="372" width="248" height="48" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/><text class="th" x="68" y="392" text-anchor="start" fill="#085041">analyzers ×5</text><text class="ts" x="68" y="409" text-anchor="start" fill="#0F6E56">merge · size · review · CI · ticket</text></g>
+<g><rect x="54" y="428" width="248" height="48" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/><text class="th" x="68" y="448" text-anchor="start" fill="#085041">scoring engine</text><text class="ts" x="68" y="465" text-anchor="start" fill="#0F6E56">signals → score · deterministic</text></g>
+
+<rect x="364" y="290" width="276" height="204" rx="8" fill="none" stroke="#7F77DD" stroke-width="0.5" stroke-dasharray="4 4"/>
+<text class="reg" x="378" y="308" text-anchor="start">Driven adapters (ports out)</text>
+<g><rect x="378" y="316" width="248" height="48" rx="6" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/><text class="th" x="392" y="336" text-anchor="start" fill="#3C3489">SCM providers</text><text class="ts" x="392" y="353" text-anchor="start" fill="#534AB7">GitHub · Harness</text></g>
+<g><rect x="378" y="372" width="248" height="48" rx="6" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/><text class="th" x="392" y="392" text-anchor="start" fill="#3C3489">LLM narrators</text><text class="ts" x="392" y="409" text-anchor="start" fill="#534AB7">Anthropic · Bedrock · fallback</text></g>
+<g><rect x="378" y="428" width="248" height="48" rx="6" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/><text class="th" x="392" y="448" text-anchor="start" fill="#3C3489">persistence</text><text class="ts" x="392" y="465" text-anchor="start" fill="#534AB7">repository · ORM</text></g>
+
+<line x1="502" y1="494" x2="346" y2="516" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text class="arl" x="356" y="508" text-anchor="start">network / DB</text>
+
+<text class="reg" x="40" y="512" text-anchor="start">External systems</text>
+<g><rect x="40" y="520" width="138" height="50" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/><text class="th" x="56" y="541" text-anchor="start" fill="#444441">SCM APIs</text><text class="ts" x="56" y="558" text-anchor="start" fill="#5F5E5A">GitHub · Harness</text></g>
+<g><rect x="194" y="520" width="138" height="50" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/><text class="th" x="210" y="541" text-anchor="start" fill="#444441">LLM APIs</text><text class="ts" x="210" y="558" text-anchor="start" fill="#5F5E5A">Anthropic · Bedrock</text></g>
+<g><rect x="348" y="520" width="138" height="50" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/><text class="th" x="364" y="541" text-anchor="start" fill="#444441">Slack</text><text class="ts" x="364" y="558" text-anchor="start" fill="#5F5E5A">failure alerts</text></g>
+<g><rect x="502" y="520" width="138" height="50" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/><text class="th" x="518" y="541" text-anchor="start" fill="#444441">Database</text><text class="ts" x="518" y="558" text-anchor="start" fill="#5F5E5A">SQLite · Postgres</text></g>
+
+<rect x="40" y="592" width="12" height="12" rx="3" fill="#5DCAA5"/><text class="arl" x="58" y="602" text-anchor="start">Pure core (no I/O)</text>
+<rect x="250" y="592" width="12" height="12" rx="3" fill="#7F77DD"/><text class="arl" x="268" y="602" text-anchor="start">Adapters (all I/O)</text>
+<rect x="450" y="592" width="12" height="12" rx="3" fill="#888780"/><text class="arl" x="468" y="602" text-anchor="start">Client / external</text>
+</svg>

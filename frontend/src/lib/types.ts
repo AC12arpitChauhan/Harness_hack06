@@ -188,3 +188,26 @@ export interface RevertAnalysisOut {
   reverted: number;
   behaviours: BehaviourCorrelation[];
 }
+
+export interface SimilarPRItem {
+  pr_id: string;
+  provider_pr_id: string;
+  title: string;
+  state: PRStateValue;
+  similarity: number; // 0..1
+  health_score: number | null;
+  reverted: boolean;
+}
+
+export interface SimilarPRsSummary {
+  neighbor_count: number;
+  reverted_count: number;
+  reverted_rate: number | null;
+  avg_health_score: number | null;
+}
+
+export interface SimilarPRsOut {
+  pr_id: string;
+  neighbors: SimilarPRItem[];
+  summary: SimilarPRsSummary;
+}

@@ -216,6 +216,15 @@ class Repository:
     def get_repository(self, repo_id: str) -> orm.Repository | None:
         return self.session.get(orm.Repository, repo_id)
 
+    def find_repository(self, provider: str, provider_id: str) -> orm.Repository | None:
+        """Look up a repo by its provider identity (read-only; no insert)."""
+        return self.session.scalar(
+            select(orm.Repository).where(
+                orm.Repository.provider == provider,
+                orm.Repository.provider_id == provider_id,
+            )
+        )
+
     def get_pull_request(self, pr_id: str) -> orm.PullRequest | None:
         return self.session.get(orm.PullRequest, pr_id)
 
@@ -487,6 +496,83 @@ class Repository:
                 }
             )
         return {"merged": merged_total, "reverted": reverted_total, "behaviours": behaviours}
+
+    # ---- repository baselines + PR similarity (history-driven scoring) ----
+    def repo_history_features(
+        self, repo_id: str, exclude_provider_pr_id: str | None = None
+    ) -> dict[str, list[float]]:
+        """Per-PR feature samples for a repo, used to build statistical baselines.
+
+        Returns three sample lists drawn from prior PRs (the PR being analyzed is
+        excluded so it never skews its own baseline):
+          - ``sizes``          : additions+deletions per PR that has a stored diff
+          - ``reviewers``      : distinct reviewer count per PR that has a stored diff
+          - ``merge_minutes``  : open->merge minutes per merged PR
+
+        Only PRs with a persisted diff contribute size/reviewer samples, so a PR that
+        was referenced but never analyzed doesn't masquerade as a 0-line, 0-reviewer
+        change. Read-only; small N-per-repo loop is fine at our scale.
+        """
+        prs = list(
+            self.session.scalars(
+                select(orm.PullRequest).where(orm.PullRequest.repo_id == repo_id)
+            )
+        )
+        sizes: list[float] = []
+        reviewers: list[float] = []
+        merge_minutes: list[float] = []
+        for pr in prs:
+            if exclude_provider_pr_id is not None and pr.provider_pr_id == exclude_provider_pr_id:
+                continue
+            diff = self.session.scalar(select(orm.PrDiff).where(orm.PrDiff.pr_id == pr.id))
+            if diff is not None:
+                sizes.append(float((diff.additions or 0) + (diff.deletions or 0)))
+                reviewer_count = self.session.scalar(
+                    select(func.count(func.distinct(orm.PrReview.reviewer))).where(
+                        orm.PrReview.pr_id == pr.id
+                    )
+                )
+                reviewers.append(float(reviewer_count or 0))
+            if pr.merged_at is not None and pr.opened_at is not None:
+                minutes = (pr.merged_at - pr.opened_at).total_seconds() / 60.0
+                if minutes >= 0:
+                    merge_minutes.append(minutes)
+        return {"sizes": sizes, "reviewers": reviewers, "merge_minutes": merge_minutes}
+
+    def similarity_corpus(self, repo_id: str) -> list[dict]:
+        """Feature bundles for every analyzed PR in a repo, for similarity ranking.
+
+        Each bundle carries what app.scoring.similarity needs (files, title, size) plus
+        the *outcome* fields a reviewer cares about (latest health score; whether a
+        later 'Revert … #N' PR undid it). Only PRs with a stored diff are included.
+        Read-only; computed with the same revert heuristic as revert_correlation.
+        """
+        pairs = self.list_prs_with_latest_score(repo_id, None, "created_at", 100000)
+        reverted: set[int] = set()
+        for pr, _ in pairs:
+            if "revert" in (pr.title or "").lower():
+                reverted.update(int(m) for m in self._REVERT_RE.findall(pr.title or ""))
+
+        out: list[dict] = []
+        for pr, score in pairs:
+            diff = self.session.scalar(select(orm.PrDiff).where(orm.PrDiff.pr_id == pr.id))
+            if diff is None:
+                continue
+            files = [f.get("filename", "") for f in (diff.files_json or []) if f.get("filename")]
+            num = int(pr.provider_pr_id) if (pr.provider_pr_id or "").isdigit() else None
+            out.append(
+                {
+                    "pr_id": pr.id,
+                    "provider_pr_id": pr.provider_pr_id,
+                    "title": pr.title or "",
+                    "state": pr.state,
+                    "files": files,
+                    "size": float((diff.additions or 0) + (diff.deletions or 0)),
+                    "health_score": score.health_score if score is not None else None,
+                    "reverted": num is not None and num in reverted,
+                }
+            )
+        return out
 
     @staticmethod
     def _history_bucket_key(created_at, bucket: str) -> str:

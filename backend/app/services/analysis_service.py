@@ -8,7 +8,7 @@ The async narrate + writeback step runs after this returns (see api/routes/analy
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 
 from app.analyzers.base import Analyzer
@@ -23,6 +23,7 @@ from app.persistence.db import get_session_factory
 from app.persistence.repository import Repository
 from app.providers.base import SCMProvider
 from app.providers.registry import get_provider
+from app.scoring.baseline import build_repo_baseline
 from app.scoring.engine import ScoringEngine
 from app.services.scoring_config import default_config
 from app.services import slack_service
@@ -81,6 +82,7 @@ def run_analysis(
 ) -> AnalysisResult:
     """Fetch PR data, score it deterministically, persist one run, return scores."""
     pr, ctx = _gather(provider, repo, pr_number)
+    ctx = replace(ctx, baseline=_repo_baseline(repository, provider.name, repo, pr))
     signals = [sig for analyzer in analyzers for sig in analyzer.analyze(pr, ctx)]
     score = engine.compute(signals)
     repo_id, pr_id, run_id = _persist(repository, provider.name, repo, repo_url, pr, ctx, signals, score)
@@ -95,6 +97,24 @@ def _gather(provider: SCMProvider, repo: str, pr_number: int) -> tuple[PullReque
     checks: list[Check] = provider.get_checks(repo, pr.commit_sha) if pr.commit_sha else []
     commits: list[Commit] = provider.get_commits(repo, pr_number)
     return pr, AnalysisContext(diff=diff, reviews=reviews, checks=checks, commits=commits)
+
+
+def _repo_baseline(repository: Repository, provider_name: str, repo: str, pr: PullRequest):
+    """Build this repo's statistical baseline from prior PRs (current PR excluded).
+
+    Returns None on a repo we've never analyzed or one with too little history, in
+    which case the baseline_anomaly analyzer simply records "insufficient history" and
+    the engine applies no deduction. Read-only — never mutates the pending transaction.
+    """
+    repo_row = repository.find_repository(provider_name, repo)
+    if repo_row is None:
+        return None
+    features = repository.repo_history_features(
+        repo_row.id, exclude_provider_pr_id=pr.provider_pr_id or str(pr.number)
+    )
+    return build_repo_baseline(
+        features["sizes"], features["reviewers"], features["merge_minutes"]
+    )
 
 
 def _persist(

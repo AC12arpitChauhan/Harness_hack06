@@ -11,6 +11,7 @@ export const keys = {
   prs: (repoId: string, opts?: object) => ["prs", repoId, opts ?? {}] as const,
   prDetail: (repoId: string, prId: string) => ["prDetail", repoId, prId] as const,
   mergeReadiness: (repoId: string, prId: string) => ["mergeReadiness", repoId, prId] as const,
+  similarPRs: (repoId: string, prId: string) => ["similarPRs", repoId, prId] as const,
   aiFix: (repoId: string, prId: string) => ["aiFix", repoId, prId] as const,
   authorStats: (author: string) => ["authorStats", author] as const,
   scoringConfig: ["scoringConfig"] as const,
@@ -75,6 +76,14 @@ export function useMergeReadiness(repoId: string | undefined, prId: string | und
   return useQuery({
     queryKey: keys.mergeReadiness(repoId ?? "—", prId ?? "—"),
     queryFn: () => api.mergeReadiness(repoId!, prId!),
+    enabled: !!repoId && !!prId,
+  });
+}
+
+export function useSimilarPRs(repoId: string | undefined, prId: string | undefined) {
+  return useQuery({
+    queryKey: keys.similarPRs(repoId ?? "—", prId ?? "—"),
+    queryFn: () => api.similarPRs(repoId!, prId!),
     enabled: !!repoId && !!prId,
   });
 }

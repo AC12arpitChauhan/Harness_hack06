@@ -116,6 +116,39 @@ class PRRef:
 
 
 @dataclass(frozen=True)
+class MetricBaseline:
+    """One metric's repository history summary: how many samples, their mean, std.
+
+    ``std`` is the population standard deviation of the samples. A metric is only
+    represented here when it has enough history and non-zero spread (see
+    app.scoring.baseline.build_repo_baseline); otherwise it is left as None on the
+    owning RepoBaseline so the anomaly analyzer simply skips it.
+    """
+
+    n: int
+    mean: float
+    std: float
+
+
+@dataclass(frozen=True)
+class RepoBaseline:
+    """Per-repository statistical baselines used for z-score anomaly detection.
+
+    Each field is None when that metric lacks sufficient history. Computed from
+    prior PRs of the same repo (the current PR excluded) — see
+    app.persistence.repository.repo_history_features + app.scoring.baseline.
+    """
+
+    size: MetricBaseline | None = None
+    reviewers: MetricBaseline | None = None
+    merge_minutes: MetricBaseline | None = None
+
+    @property
+    def has_any(self) -> bool:
+        return any((self.size, self.reviewers, self.merge_minutes))
+
+
+@dataclass(frozen=True)
 class AnalysisContext:
     """Everything an analyzer needs, fetched ONCE by the service and passed in.
 
@@ -127,3 +160,7 @@ class AnalysisContext:
     reviews: list[Review] = field(default_factory=list)
     checks: list[Check] = field(default_factory=list)
     commits: list[Commit] = field(default_factory=list)
+    # Repository history baselines (None until computed by the service from the DB).
+    # Lets the baseline_anomaly analyzer score "abnormal for THIS repo" while staying
+    # pure: the service does the I/O and hands the precomputed baseline in here.
+    baseline: RepoBaseline | None = None

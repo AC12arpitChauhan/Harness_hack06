@@ -11,6 +11,7 @@ import type {
   ScoreHistoryOut,
   ScoringConfigOut,
   ScoringConfigUpdate,
+  SimilarPRsOut,
 } from "./types";
 
 const RAW_BASE = import.meta.env.VITE_API_BASE ?? "http://136.109.192.193:8000";
@@ -126,6 +127,9 @@ export const api = {
 
   mergeReadiness: (repoId: string, prId: string) =>
     get<MergeReadinessOut>(`/repositories/${repoId}/prs/${prId}/merge_readiness`),
+
+  similarPRs: (repoId: string, prId: string, k = 5) =>
+    get<SimilarPRsOut>(`/repositories/${repoId}/prs/${prId}/similar`, { k }),
 
   aiFix: (repoId: string, prId: string) =>
     get<AIFixOut>(`/repositories/${repoId}/prs/${prId}/ai_fix`),

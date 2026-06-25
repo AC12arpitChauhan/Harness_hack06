@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, GitMerge, Lightbulb, RefreshCw, Sparkles, Tag, X } from "lucide-react";
+import { Activity, ArrowRight, GitMerge, Layers, Lightbulb, RefreshCw, Sparkles, Tag, Undo2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArcGauge } from "../components/primitives/ArcGauge";
 import { ReadyPill, StateChip } from "../components/primitives/Chip";
 import { ErrorState, Skeleton } from "../components/primitives/States";
 import { api, ApiError } from "../lib/api";
-import { keys, usePRDetail, useMergeReadiness, useRepositories } from "../lib/queries";
+import { keys, usePRDetail, useMergeReadiness, useRepositories, useSimilarPRs } from "../lib/queries";
 import { humanizeSignal, severityColor, SEVERITY_ORDER, scoreFixed } from "../lib/format";
 import type { SignalOut } from "../lib/types";
 import { AiFixPanel } from "../components/widgets/AiFixPanel";
@@ -82,6 +82,7 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
   const open = !!prId;
   const detail = usePRDetail(repoId, prId);
   const mr = useMergeReadiness(repoId, prId);
+  const similar = useSimilarPRs(repoId, prId);
   const d = detail.data;
 
   const queryClient = useQueryClient();
@@ -99,6 +100,7 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: keys.prDetail(repoId ?? "—", prId ?? "—") }),
         queryClient.invalidateQueries({ queryKey: keys.mergeReadiness(repoId ?? "—", prId ?? "—") }),
+        queryClient.invalidateQueries({ queryKey: keys.similarPRs(repoId ?? "—", prId ?? "—") }),
         queryClient.invalidateQueries({ queryKey: ["prs", repoId] }),
         queryClient.invalidateQueries({ queryKey: ["overview", repoId] }),
       ]);
@@ -115,6 +117,13 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
     sev,
     items: (d?.signals ?? []).filter((s) => s.severity === sev),
   })).filter((g) => g.items.length > 0);
+
+  // Repository-baseline outliers (this PR is abnormal vs the repo's own history).
+  // exceeds_threshold is true only for the real outlier signals, not the
+  // within-norms / insufficient-history info notes.
+  const baselineOutliers = (d?.signals ?? []).filter(
+    (s) => s.signal_name.startsWith("baseline_anomaly.") && s.exceeds_threshold,
+  );
 
   return (
     <AnimatePresence>
@@ -217,6 +226,31 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
                     <ScoreMeter label="Readiness" value={d.score?.merge_readiness} />
                   </div>
 
+                  {/* repository baseline — appears only when this PR is a statistical
+                      outlier vs the repo's own history (explains the docked health) */}
+                  {baselineOutliers.length > 0 && (
+                    <div className="rounded-2xl border border-hair bg-surface p-5">
+                      <div className="flex items-center gap-2">
+                        <Activity size={16} className="text-ink-soft" />
+                        <span className="eyebrow">Repository baseline</span>
+                      </div>
+                      <p className="mt-1.5 text-[12.5px] leading-snug text-ink-soft">
+                        Unusual versus this repository's own history — which lowered the health score.
+                      </p>
+                      <ul className="mt-3 flex flex-col gap-2.5">
+                        {baselineOutliers.map((s, i) => (
+                          <li key={`${s.signal_name}-${i}`} className="flex items-start gap-2.5">
+                            <span
+                              className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                              style={{ background: severityColor(s.severity) }}
+                            />
+                            <p className="text-[12.5px] leading-snug text-ink">{s.explanation}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {/* merge readiness verdict */}
                   <div className="rounded-2xl border border-hair bg-surface p-5">
                     <div className="flex items-center justify-between">
@@ -242,6 +276,63 @@ export function PRDetailDrawer({ repoId, prId, onClose }: Props) {
                       </>
                     )}
                   </div>
+
+                  {/* similar past PRs (history-based context; no embeddings/LLM) */}
+                  {similar.data && similar.data.neighbors.length > 0 && (
+                    <div className="rounded-2xl border border-hair bg-surface p-5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Layers size={16} className="text-ink-soft" />
+                          <span className="eyebrow">Similar past PRs</span>
+                        </div>
+                        <span className="text-[11px] text-ink-mute tnum">
+                          {similar.data.summary.neighbor_count} found
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[12.5px] leading-snug text-ink-soft">
+                        Resembles {similar.data.summary.neighbor_count} past PR
+                        {similar.data.summary.neighbor_count === 1 ? "" : "s"}
+                        {similar.data.summary.reverted_count > 0 ? (
+                          <>
+                            {" "}— <span className="font-semibold text-risk">
+                              {similar.data.summary.reverted_count} later reverted
+                            </span>
+                          </>
+                        ) : (
+                          <> — none later reverted</>
+                        )}
+                        {similar.data.summary.avg_health_score !== null && (
+                          <> · avg health {Math.round(similar.data.summary.avg_health_score)}</>
+                        )}
+                        .
+                      </p>
+                      <ul className="mt-3 flex flex-col divide-y divide-hair">
+                        {similar.data.neighbors.map((n) => (
+                          <li key={n.pr_id} className="flex items-center gap-3 py-2.5">
+                            <span className="mono shrink-0 text-[11px] text-ink-mute">
+                              #{n.provider_pr_id}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
+                              {n.title || "Untitled"}
+                            </span>
+                            {n.reverted && (
+                              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-risk/10 px-2 py-0.5 text-[10.5px] font-semibold text-risk">
+                                <Undo2 size={11} /> reverted
+                              </span>
+                            )}
+                            {n.health_score !== null && (
+                              <span className="shrink-0 text-[11px] text-ink-mute tnum">
+                                {Math.round(n.health_score)}
+                              </span>
+                            )}
+                            <span className="shrink-0 text-[11px] font-semibold text-ink-soft tnum">
+                              {Math.round(n.similarity * 100)}%
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {/* AI fix suggestion (on demand) */}
                   <AiFixPanel repoId={repoId} prId={prId} />

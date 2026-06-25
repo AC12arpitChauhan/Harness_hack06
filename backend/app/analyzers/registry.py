@@ -2,13 +2,16 @@
 so the analyzers package stays free of external deps. The API layer passes
 settings-derived values in.
 
-Five analyzers are wired here. ticket_linkage emits a Jira-linkage signal but is
+Six analyzers are wired here. ticket_linkage emits a Jira-linkage signal but is
 intentionally NOT in the scoring weight maps (scoring/engine.py), so its signals
-surface in the breakdown without moving the deterministic scores.
+surface in the breakdown without moving the deterministic scores. baseline_anomaly
+is likewise outside the weight maps; the engine applies a separate bounded health
+deduction for its repository-deviation signals (see scoring/engine.py).
 """
 from __future__ import annotations
 
 from app.analyzers.base import Analyzer
+from app.analyzers.baseline_anomaly import BaselineAnomalyAnalyzer
 from app.analyzers.change_size import (
     DEFAULT_CRITICAL_LINES,
     DEFAULT_HIGH_FILES,
@@ -49,4 +52,5 @@ def enabled_analyzers(
         ReviewQualityAnalyzer(review_trivial_lines, review_thin_reviewers),
         CiStatusAnalyzer(),
         TicketLinkageAnalyzer(),
+        BaselineAnomalyAnalyzer(),
     ]
