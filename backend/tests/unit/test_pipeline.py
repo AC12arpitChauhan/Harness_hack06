@@ -18,6 +18,7 @@ def test_terrible_pr_scores_low_and_is_blocked():
     score = ScoringEngine().compute(signals)
 
     assert score.health_score < 40
+    assert score.risk_score > 50
     assert score.merge_readiness == 15.0  # capped by hard blockers
     assert score.blocking_reason is not None
     for fragment in ("Required CI", "Merged despite", "No approving"):
@@ -38,5 +39,6 @@ def test_excellent_pr_scores_high_and_ready():
     score = ScoringEngine().compute(signals)
 
     assert score.health_score == 100.0
+    assert score.risk_score == 0.0
     assert score.merge_readiness == 100.0
     assert score.blocking_reason is None

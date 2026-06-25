@@ -17,6 +17,7 @@ class ScoreBreakdown:
     """
 
     weights: dict[str, float]              # health weights per analyzer
+    risk_weights: dict[str, float]         # risk weights per analyzer
     severity_penalties: dict[str, float]   # severity -> points deducted
     analyzer_subscores: dict[str, float]   # per-analyzer 0..100 sub-score
     penalties: list[dict[str, Any]]        # one entry per signal that deducted points
@@ -25,6 +26,7 @@ class ScoreBreakdown:
     def as_dict(self) -> dict[str, Any]:
         return {
             "weights": self.weights,
+            "risk_weights": self.risk_weights,
             "severity_penalties": self.severity_penalties,
             "analyzer_subscores": self.analyzer_subscores,
             "penalties": self.penalties,
@@ -42,6 +44,7 @@ class Score:
     """
 
     health_score: float
+    risk_score: float
     review_quality_score: float
     merge_readiness: float
     blocking_reason: str | None

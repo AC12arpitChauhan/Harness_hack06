@@ -19,6 +19,7 @@ class AnalyzeRequest(BaseModel):
 
 class ScoreOut(BaseModel):
     health_score: float
+    risk_score: float
     review_quality_score: float
     merge_readiness: float
     blocking_reason: str | None = None
@@ -48,6 +49,7 @@ class AnalyzeResponse(BaseModel):
 # --- dashboard DTOs --------------------------------------------------------
 class ScoreSummary(BaseModel):
     health_score: float | None = None
+    risk_score: float | None = None
     review_quality_score: float | None = None
     merge_readiness: float | None = None
     blocking_reason: str | None = None
@@ -110,6 +112,7 @@ class AuthorStatsOut(BaseModel):
     author: str
     pr_count: int
     avg_health_score: float | None = None
+    avg_risk_score: float | None = None
 
 
 class MergeReadinessOut(BaseModel):
@@ -146,6 +149,7 @@ class OverviewCounts(BaseModel):
 
 class OverviewAverages(BaseModel):
     health: float | None = None
+    risk: float | None = None
     review_quality: float | None = None
     merge_readiness: float | None = None
 
@@ -191,6 +195,7 @@ class ScoringConfigOut(BaseModel):
     analyzer thresholds. Reflects engine defaults overlaid with the team override;
     ``customized`` is True when a team override is in effect."""
     health_weights: dict[str, float]
+    risk_weights: dict[str, float]
     severity_penalties: dict[str, float]
     blocked_cap: float
     ready_threshold: float
@@ -202,6 +207,7 @@ class ScoringConfigUpdate(BaseModel):
     """Team override submitted from the Settings page. Weights are normalized and
     thresholds sanitized server-side, so partial/odd input can't break scoring."""
     health_weights: dict[str, float] = Field(default_factory=dict)
+    risk_weights: dict[str, float] = Field(default_factory=dict)
     thresholds: dict[str, float] = Field(default_factory=dict)
 
 

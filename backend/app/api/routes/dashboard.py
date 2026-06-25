@@ -49,6 +49,7 @@ def _score_summary(row: orm.AnalysisScore | None) -> ScoreSummary | None:
         return None
     return ScoreSummary(
         health_score=row.health_score,
+        risk_score=row.risk_score,
         review_quality_score=row.review_quality_score,
         merge_readiness=row.merge_readiness,
         blocking_reason=row.blocking_reason,
@@ -308,6 +309,7 @@ def _scoring_config_out(settings: Settings, eff: dict) -> ScoringConfigOut:
     """Shape an effective-config dict into the API response."""
     return ScoringConfigOut(
         health_weights=eff["health_weights"],
+        risk_weights=eff["risk_weights"],
         severity_penalties=settings.severity_penalties,
         blocked_cap=settings.blocked_cap,
         ready_threshold=settings.ready_threshold,
@@ -338,8 +340,9 @@ def put_scoring_config(
     thresholds sanitized server-side, so future analyses always score in range.
     Auth-gated (changing scoring is a write)."""
     health = sanitize_weights(body.health_weights, settings.health_weights)
+    risk = sanitize_weights(body.risk_weights, settings.risk_weights)
     thresholds = sanitize_thresholds(body.thresholds, settings)
-    repository.upsert_scoring_config(health, thresholds)
+    repository.upsert_scoring_config(health, risk, thresholds)
     repository.session.commit()
     return _scoring_config_out(settings, effective_config(settings, repository))
 

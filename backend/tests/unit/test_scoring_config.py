@@ -84,6 +84,7 @@ def test_put_normalizes_and_sets_customized(client, auth_headers):
     # Weights that don't sum to 1 must be normalized server-side.
     payload = {
         "health_weights": {"merge_speed": 1, "change_size": 1, "review_quality": 1, "ci_status": 1},
+        "risk_weights": {"merge_speed": 1, "change_size": 1, "review_quality": 1, "ci_status": 1},
         "thresholds": {"change_high_lines": 800},
     }
     body = client.put("/api/v1/scoring-config", headers=auth_headers, json=payload).json()
@@ -99,7 +100,7 @@ def test_delete_resets_to_defaults(client, auth_headers):
     client.put(
         "/api/v1/scoring-config",
         headers=auth_headers,
-        json={"health_weights": {"change_size": 1}, "thresholds": {}},
+        json={"health_weights": {"change_size": 1}, "risk_weights": {}, "thresholds": {}},
     )
     body = client.delete("/api/v1/scoring-config", headers=auth_headers).json()
     assert body["customized"] is False
@@ -117,6 +118,7 @@ def test_override_changes_health_score(client, auth_headers, monkeypatch):
         headers=auth_headers,
         json={
             "health_weights": {"merge_speed": 1, "change_size": 97, "review_quality": 1, "ci_status": 1},
+            "risk_weights": {},
             "thresholds": {},
         },
     )
@@ -129,6 +131,7 @@ def test_override_changes_health_score(client, auth_headers, monkeypatch):
         headers=auth_headers,
         json={
             "health_weights": {"merge_speed": 33, "change_size": 1, "review_quality": 33, "ci_status": 33},
+            "risk_weights": {},
             "thresholds": {},
         },
     )
@@ -144,7 +147,7 @@ def test_threshold_override_changes_signal(client, auth_headers, monkeypatch):
     client.put(
         "/api/v1/scoring-config",
         headers=auth_headers,
-        json={"health_weights": {}, "thresholds": {"change_high_lines": 5000, "change_critical_lines": 10000}},
+        json={"health_weights": {}, "risk_weights": {}, "thresholds": {"change_high_lines": 5000, "change_critical_lines": 10000}},
     )
     relaxed = _analyze(client, auth_headers, monkeypatch, pr_number=2)
     assert relaxed["scores"]["health_score"] >= default["scores"]["health_score"]

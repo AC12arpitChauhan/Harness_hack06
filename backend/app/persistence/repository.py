@@ -138,6 +138,7 @@ class Repository:
     def upsert_scoring_config(
         self,
         health_weights: dict[str, float],
+        risk_weights: dict[str, float],
         thresholds: dict[str, float],
     ) -> orm.ScoringConfig:
         """Create or replace the global override. Caller commits."""
@@ -146,6 +147,7 @@ class Repository:
             row = orm.ScoringConfig(id=self._SCORING_CONFIG_ID)
             self.session.add(row)
         row.health_weights_json = dict(health_weights)
+        row.risk_weights_json = dict(risk_weights)
         row.thresholds_json = dict(thresholds)
         self.session.flush()
         return row
@@ -186,6 +188,7 @@ class Repository:
             analysis_run_id=run_id,
             pr_id=pr_id,
             health_score=score.health_score,
+            risk_score=score.risk_score,
             review_quality_score=score.review_quality_score,
             merge_readiness=score.merge_readiness,
             score_breakdown_json=score.breakdown.as_dict(),
@@ -310,10 +313,16 @@ class Repository:
             .join(orm.PullRequest, orm.PullRequest.id == orm.AnalysisScore.pr_id)
             .where(orm.PullRequest.author == author)
         )
+        avg_risk = self.session.scalar(
+            select(func.avg(orm.AnalysisScore.risk_score))
+            .join(orm.PullRequest, orm.PullRequest.id == orm.AnalysisScore.pr_id)
+            .where(orm.PullRequest.author == author)
+        )
         return {
             "author": author,
             "pr_count": int(pr_count or 0),
             "avg_health_score": round(float(avg_health), 2) if avg_health is not None else None,
+            "avg_risk_score": round(float(avg_risk), 2) if avg_risk is not None else None,
         }
 
     def repo_overview(self, repo_id: str, ready_threshold: float) -> dict:
@@ -322,7 +331,7 @@ class Repository:
         pairs = self.list_prs_with_latest_score(repo_id, None, "created_at", 100000)
         counts = {"total": len(pairs), "open": 0, "merged": 0, "closed": 0,
                   "ready": 0, "blocked": 0, "analyzed": 0}
-        sums = {"health": 0.0, "review_quality": 0.0, "merge_readiness": 0.0}
+        sums = {"health": 0.0, "risk": 0.0, "review_quality": 0.0, "merge_readiness": 0.0}
         n_scored = 0
         severity = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
         breaches: dict[str, int] = {}
@@ -333,6 +342,7 @@ class Repository:
                 n_scored += 1
                 counts["analyzed"] += 1
                 sums["health"] += score.health_score
+                sums["risk"] += score.risk_score
                 sums["review_quality"] += score.review_quality_score
                 sums["merge_readiness"] += score.merge_readiness
                 if score.blocking_reason:

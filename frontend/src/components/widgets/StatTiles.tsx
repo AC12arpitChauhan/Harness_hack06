@@ -18,10 +18,11 @@ export function StatTiles({ repoId }: { repoId: string | undefined }) {
     { label: "Open", value: c?.open, accent: "var(--color-health)" },
     { label: "Merged", value: c?.merged, accent: "#6d4bd6" },
     { label: "Critical", value: c?.blocked, accent: "var(--color-risk)", hint: "high severity" },
+    { label: "Avg Risk", value: a?.risk, accent: "var(--color-accent)", hint: "lower is better" },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
       {tiles.map((t, i) => (
         <Card key={t.label} index={i + 1} className="!p-5">
           {isLoading ? (

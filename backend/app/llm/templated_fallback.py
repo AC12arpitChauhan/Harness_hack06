@@ -33,7 +33,7 @@ class TemplatedNarrator(LLMProvider):
         )
         summary = (
             f'PR #{pr.number} "{pr.title}" scored {score.health_score:.0f}/100 health '
-            f"(review quality {score.review_quality_score:.0f}, "
+            f"(risk {score.risk_score:.0f}, review quality {score.review_quality_score:.0f}, "
             f"merge readiness {score.merge_readiness:.0f})."
         )
         if score.blocking_reason:

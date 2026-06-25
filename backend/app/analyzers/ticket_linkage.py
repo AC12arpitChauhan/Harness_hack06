@@ -6,10 +6,10 @@ This analyzer surfaces a signal for that linkage: a LOW signal when no ticket is
 linked (untraceable change), an INFO signal when one is.
 
 IMPORTANT — surface-only by design: ``ticket_linkage`` is deliberately NOT in the
-scoring weight map (scoring/engine.py DEFAULT_HEALTH_WEIGHTS), so these signals
-appear in the signal list / severity breakdown / top-signals but do NOT move the
-deterministic health/review_quality/merge_readiness scores. The engine records
-them with ``counted_toward_score=False``.
+scoring weight maps (scoring/engine.py DEFAULT_HEALTH_WEIGHTS / DEFAULT_RISK_WEIGHTS),
+so these signals appear in the signal list / severity breakdown / top-signals but do
+NOT move the deterministic health/risk/review_quality/merge_readiness scores. The
+engine records them with ``counted_toward_score=False``.
 
 PURE: stdlib + domain only.
 """

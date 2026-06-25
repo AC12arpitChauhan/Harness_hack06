@@ -40,7 +40,7 @@ def test_live_analyze_then_read_back(client, auth_headers):
     body = resp.json()
 
     # scores are present and in range
-    for key in ("health_score", "review_quality_score", "merge_readiness"):
+    for key in ("health_score", "risk_score", "review_quality_score", "merge_readiness"):
         assert 0.0 <= body["scores"][key] <= 100.0
 
     # read the PR back from the DB; stored score must match the response exactly
