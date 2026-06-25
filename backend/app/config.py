@@ -16,6 +16,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.scoring.engine import (
     DEFAULT_BLOCKED_CAP,
     DEFAULT_HEALTH_WEIGHTS,
+    DEFAULT_RISK_WEIGHTS,
     DEFAULT_SEVERITY_PENALTIES,
 )
 
@@ -110,6 +111,10 @@ class Settings(BaseSettings):
     @property
     def health_weights(self) -> dict[str, float]:
         return dict(DEFAULT_HEALTH_WEIGHTS)
+
+    @property
+    def risk_weights(self) -> dict[str, float]:
+        return dict(DEFAULT_RISK_WEIGHTS)
 
     @property
     def severity_penalties(self) -> dict[str, float]:

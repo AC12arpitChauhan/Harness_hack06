@@ -10,8 +10,9 @@ HOW THE SCORES ARE COMPUTED (the one readable formula)
 2. Each analyzer gets a sub-score:
        subscore[a] = max(0, 100 - sum(penalty of a's signals))
 3. health_score = Σ HEALTH_WEIGHTS[a] * subscore[a]          (weighted "goodness")
-4. review_quality_score = subscore["review_quality"]         (the standalone lens)
-5. merge_readiness:
+4. risk_score   = Σ RISK_WEIGHTS[a]   * (100 - subscore[a])  (weighted "badness")
+5. review_quality_score = subscore["review_quality"]         (the standalone lens)
+6. merge_readiness:
        blockers = policies.hard_blockers(signals)
        if blockers: merge_readiness = min(health_score, BLOCKED_CAP); reason set
        else:        merge_readiness = health_score;                    reason None
@@ -43,6 +44,13 @@ DEFAULT_HEALTH_WEIGHTS: dict[str, float] = {
     "ci_status": 0.20,
 }
 
+DEFAULT_RISK_WEIGHTS: dict[str, float] = {
+    "change_size": 0.30,
+    "ci_status": 0.30,
+    "merge_speed": 0.20,
+    "review_quality": 0.20,
+}
+
 DEFAULT_BLOCKED_CAP: float = 15.0  # merge_readiness ceiling when a hard blocker fires
 
 
@@ -56,10 +64,12 @@ class ScoringEngine:
     def __init__(
         self,
         health_weights: dict[str, float] | None = None,
+        risk_weights: dict[str, float] | None = None,
         severity_penalties: dict[Severity, float] | None = None,
         blocked_cap: float = DEFAULT_BLOCKED_CAP,
     ) -> None:
         self.health_weights = dict(health_weights or DEFAULT_HEALTH_WEIGHTS)
+        self.risk_weights = dict(risk_weights or DEFAULT_RISK_WEIGHTS)
         self.severity_penalties = dict(severity_penalties or DEFAULT_SEVERITY_PENALTIES)
         self.blocked_cap = blocked_cap
 
@@ -88,6 +98,9 @@ class ScoringEngine:
         subscores = {a: max(0.0, 100.0 - p) for a, p in penalties.items()}
 
         health = _round(sum(self.health_weights[a] * subscores[a] for a in self.health_weights))
+        risk = _round(
+            sum(self.risk_weights[a] * (100.0 - subscores.get(a, 100.0)) for a in self.risk_weights)
+        )
         review_quality = _round(subscores.get("review_quality", 100.0))
 
         blockers = policies.hard_blockers(signals)
@@ -100,11 +113,13 @@ class ScoringEngine:
 
         breakdown = ScoreBreakdown(
             weights=dict(self.health_weights),
+            risk_weights=dict(self.risk_weights),
             severity_penalties={s.value: p for s, p in self.severity_penalties.items()},
             analyzer_subscores={a: _round(s) for a, s in subscores.items()},
             penalties=penalty_records,
             components={
                 "health": {"weights": self.health_weights, "value": health},
+                "risk": {"weights": self.risk_weights, "value": risk},
                 "review_quality": {"source": "review_quality", "value": review_quality},
                 "merge_readiness": {
                     "base_health": health,
@@ -117,6 +132,7 @@ class ScoringEngine:
 
         return Score(
             health_score=health,
+            risk_score=risk,
             review_quality_score=review_quality,
             merge_readiness=merge_readiness,
             blocking_reason=blocking_reason,

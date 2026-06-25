@@ -21,11 +21,11 @@ PR + checks + reviews + diff
         │  list[AnalysisSignal]
         ▼
  ┌─────────────┐   Severity → penalty points; penalties subtract from 100
- │   engine    │   per analyzer; weighted blend → health/review/merge
+ │   engine    │   per analyzer; weighted blend → health/risk/review/merge
  └─────────────┘
         │
         ▼
- health_score · review_quality_score · merge_readiness
+ health_score · risk_score · review_quality_score · merge_readiness
 ```
 
 - **Analyzers** (`app/analyzers/`) detect conditions and assign severity.
@@ -63,8 +63,9 @@ In `engine.py`:
 2. For each signal, add its severity penalty **only if its analyzer is weighted**.
 3. `subscore[a] = max(0, 100 − Σ penalties[a])`
 4. `health_score = Σ HEALTH_WEIGHTS[a] × subscore[a]`
-5. `review_quality_score = subscore["review_quality"]`
-6. `merge_readiness`: if any hard blocker is present → `min(health, 15)`, else `health`.
+5. `risk_score   = Σ RISK_WEIGHTS[a] × (100 − subscore[a])`
+6. `review_quality_score = subscore["review_quality"]`
+7. `merge_readiness`: if any hard blocker is present → `min(health, 15)`, else `health`.
 
 **Weighted analyzers** (`DEFAULT_HEALTH_WEIGHTS`):
 
@@ -76,7 +77,7 @@ In `engine.py`:
 | ci_status       | 0.20          |
 
 > **`ticket_linkage` is NOT weighted.** Its signals (e.g. `no_jira`) show on the
-> dashboard but contribute **zero** to the health/merge scores. They are
+> dashboard but contribute **zero** to the health/risk/merge scores. They are
 > recorded with `counted_toward_score=False`.
 
 All weights sum to 1.0, so every score lands in `[0, 100]`.

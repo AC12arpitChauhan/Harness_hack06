@@ -32,6 +32,7 @@ def default_config(settings: Settings) -> dict:
     """The documented engine defaults, in the same shape as an effective config."""
     return {
         "health_weights": dict(settings.health_weights),
+        "risk_weights": dict(settings.risk_weights),
         "thresholds": {k: float(getattr(settings, k)) for k in THRESHOLD_KEYS},
     }
 
@@ -60,6 +61,7 @@ def effective_config(settings: Settings, repository: Repository) -> dict:
         return {**base, "customized": False}
     return {
         "health_weights": _overlay(base["health_weights"], row.health_weights_json),
+        "risk_weights": _overlay(base["risk_weights"], row.risk_weights_json),
         "thresholds": _overlay(base["thresholds"], row.thresholds_json),
         "customized": True,
     }

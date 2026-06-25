@@ -80,6 +80,7 @@ def _to_response(body: AnalyzeRequest, result: AnalysisResult, ready_threshold: 
         ready=ready,
         scores=ScoreOut(
             health_score=score.health_score,
+            risk_score=score.risk_score,
             review_quality_score=score.review_quality_score,
             merge_readiness=score.merge_readiness,
             blocking_reason=score.blocking_reason,

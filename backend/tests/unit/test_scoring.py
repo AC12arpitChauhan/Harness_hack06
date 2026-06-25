@@ -12,6 +12,7 @@ def _sig(analyzer, name, severity):
 def test_perfect_pr_scores_100():
     score = ScoringEngine().compute([])
     assert score.health_score == 100.0
+    assert score.risk_score == 0.0
     assert score.review_quality_score == 100.0
     assert score.merge_readiness == 100.0
     assert score.blocking_reason is None
@@ -23,6 +24,8 @@ def test_known_signals_known_scores():
     score = ScoringEngine().compute(signals)
     # merge_speed subscore 50 -> health = .2*50 + .25*100 + .35*100 + .2*100 = 90
     assert score.health_score == 90.0
+    # risk = .2*(100-50) = 10
+    assert score.risk_score == 10.0
     assert score.review_quality_score == 100.0
     assert score.merge_readiness == 90.0  # no hard blocker
     assert score.blocking_reason is None
@@ -52,7 +55,8 @@ def test_determinism():
     ]
     a = ScoringEngine().compute(signals)
     b = ScoringEngine().compute(signals)
-    assert (a.health_score, a.merge_readiness) == (
+    assert (a.health_score, a.risk_score, a.merge_readiness) == (
         b.health_score,
+        b.risk_score,
         b.merge_readiness,
     )
