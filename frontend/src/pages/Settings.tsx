@@ -1,31 +1,108 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Check, RotateCcw, Save, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Lock,
+  RotateCcw,
+  Ruler,
+  Save,
+  Scale,
+  Sparkles,
+} from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { ErrorState, Skeleton } from "../components/primitives/States";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { keys, useScoringConfig } from "../lib/queries";
-import { ApiError } from "../lib/api";
+import { severityColor, SEVERITY_ORDER } from "../lib/format";
 import type { ScoringConfigOut } from "../lib/types";
+import type { SeverityValue } from "../lib/types";
 
-// Human labels for the analyzer keys + thresholds the backend returns.
-const WEIGHT_LABELS: Record<string, string> = {
-  merge_speed: "Merge speed",
-  change_size: "Change size",
-  review_quality: "Review quality",
-  ci_status: "CI status",
-};
+/* ───────────────────────── metric metadata ─────────────────────────
+   Every configurable knob the backend exposes, with a plain-language
+   description rendered alongside it. Order here = order on the page. */
 
-const THRESHOLD_LABELS: Record<string, string> = {
-  merge_fast_minutes: "Fast-merge cutoff (minutes) — faster is rubber-stamp risk",
-  merge_slow_minutes: "Healthy-merge cutoff (minutes)",
-  change_medium_lines: "Medium change size (lines)",
-  change_high_lines: "High change size (lines)",
-  change_critical_lines: "Critical change size (lines)",
-  change_high_files: "High file count",
-  review_trivial_lines: "Trivial-change cutoff (lines) — below this, no review needed",
-  review_thin_reviewers: "Minimum reviewers before a review counts as thin",
+const SIGNAL_META: { key: string; label: string; desc: string }[] = [
+  {
+    key: "review_quality",
+    label: "Review quality",
+    desc: "Did the PR get real human review — enough approving reviewers for the size of the change? No approval on a non-trivial change is a hard blocker.",
+  },
+  {
+    key: "ci_status",
+    label: "CI status",
+    desc: "Are the required checks and builds green? A failing required check, or merging despite one, is a hard blocker.",
+  },
+  {
+    key: "change_size",
+    label: "Change size",
+    desc: "How large the diff is, in lines and files. Big changes are harder to review well and riskier to merge.",
+  },
+  {
+    key: "merge_speed",
+    label: "Merge speed",
+    desc: "How fast the PR went from opened to merged. Lightning-fast merges often mean nobody really looked.",
+  },
+];
+
+const THRESHOLD_META: { key: string; label: string; desc: string; unit: string }[] = [
+  {
+    key: "merge_fast_minutes",
+    label: "Rubber-stamp cutoff",
+    desc: "Open → merge faster than this is flagged CRITICAL as a likely rubber-stamp.",
+    unit: "min",
+  },
+  {
+    key: "merge_slow_minutes",
+    label: "Quick-merge cutoff",
+    desc: "Merged faster than this — but slower than the rubber-stamp cutoff — is flagged HIGH.",
+    unit: "min",
+  },
+  {
+    key: "change_medium_lines",
+    label: "Medium change",
+    desc: "Total lines changed (additions + deletions) at or above this is a MEDIUM-size signal.",
+    unit: "lines",
+  },
+  {
+    key: "change_high_lines",
+    label: "Large change",
+    desc: "Lines changed at or above this is a HIGH-size signal.",
+    unit: "lines",
+  },
+  {
+    key: "change_critical_lines",
+    label: "Huge change",
+    desc: "Lines changed at or above this is a CRITICAL-size signal.",
+    unit: "lines",
+  },
+  {
+    key: "change_high_files",
+    label: "File sprawl",
+    desc: "Touching at or above this many files flags the change as sprawling.",
+    unit: "files",
+  },
+  {
+    key: "review_trivial_lines",
+    label: "Trivial-change cutoff",
+    desc: "PRs changing this many lines or fewer don't need a review to pass.",
+    unit: "lines",
+  },
+  {
+    key: "review_thin_reviewers",
+    label: "Thin-review cutoff",
+    desc: "Fewer than this many distinct reviewers counts as thin review.",
+    unit: "people",
+  },
+];
+
+const SEVERITY_DESC: Record<string, string> = {
+  critical: "A hard problem — e.g. a failing required check or an unreviewed large change.",
+  high: "A serious issue that strongly drags the score down.",
+  medium: "A notable issue worth flagging on the PR.",
+  low: "A minor nit, surfaced but only lightly penalized.",
+  info: "Context only — never costs any points.",
 };
 
 const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
@@ -35,7 +112,7 @@ const topbar = (
     <div className="mx-auto flex max-w-[1320px] items-center gap-3 px-5 py-3.5 md:px-8">
       <Link
         to="/"
-        className="grid h-9 w-9 place-items-center rounded-xl border border-hair-strong bg-surface text-ink"
+        className="grid h-9 w-9 place-items-center rounded-xl border border-hair-strong bg-surface text-ink transition hover:bg-canvas-deep"
         aria-label="Back to dashboard"
       >
         <ArrowLeft size={18} />
@@ -56,8 +133,9 @@ export function Settings() {
   if (cfg.isLoading) {
     return (
       <AppShell topbar={topbar}>
-        <Skeleton className="h-[220px] w-full rounded-[22px]" />
-        <Skeleton className="mt-4 h-[320px] w-full rounded-[22px]" />
+        <Skeleton className="h-[180px] w-full rounded-[22px]" />
+        <Skeleton className="mt-5 h-[360px] w-full rounded-[22px]" />
+        <Skeleton className="mt-5 h-[440px] w-full rounded-[22px]" />
       </AppShell>
     );
   }
@@ -97,18 +175,20 @@ function SettingsForm({ config }: { config: ScoringConfigOut }) {
 
   const healthSum = Math.round(sum(Object.values(healthW)));
 
-  // The parameter the team currently treats as most important (highest weight).
-  const topHealth = useMemo(() => {
-    let best = "";
-    let bestV = -1;
-    for (const [k, v] of Object.entries(healthW)) {
-      if (v > bestV) {
-        best = k;
-        bestV = v;
-      }
-    }
-    return best;
-  }, [healthW]);
+  // Ordered union of signal keys — known ones first (in our order), any extras appended,
+  // so the table is exhaustive even if the backend adds a weighted analyzer later.
+  const signalKeys = useMemo(() => orderedKeys(SIGNAL_META.map((m) => m.key), healthW), [healthW]);
+  const thresholdKeys = useMemo(
+    () => orderedKeys(THRESHOLD_META.map((m) => m.key), thresholds),
+    [thresholds],
+  );
+
+  const dirty = useMemo(() => {
+    return (
+      !weightsEqual(healthW, toPercent(config.health_weights)) ||
+      !thresholdsEqual(thresholds, config.thresholds)
+    );
+  }, [healthW, thresholds, config]);
 
   async function onSave() {
     setPending("save");
@@ -142,74 +222,194 @@ function SettingsForm({ config }: { config: ScoringConfigOut }) {
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:gap-5">
-      <div className="card p-6">
-        <div className="mb-1 flex items-center justify-between gap-3">
-          <div className="eyebrow">Personalize how your team scores PRs</div>
+    <div className="flex flex-col gap-5 pb-24">
+      {/* ───── intro ───── */}
+      <div className="card overflow-hidden">
+        <div className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between md:p-7">
+          <div className="max-w-2xl">
+            <div className="eyebrow mb-2">Your scoring model</div>
+            <h1 className="display text-[34px] leading-[1.02] text-ink md:text-[40px]">
+              Tune the dials so a healthy&nbsp;PR means what <em>your</em> team says it means.
+            </h1>
+            <p className="mt-3 text-[13.5px] leading-relaxed text-ink-soft">
+              Every metric below feeds the deterministic score. Weights decide how much each area
+              counts; thresholds decide when a signal fires. Saved settings apply to{" "}
+              <strong className="text-ink">new analyses</strong> — already-scored PRs keep their
+              numbers until re-analyzed.
+            </p>
+          </div>
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+            className={`inline-flex shrink-0 items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-[11px] font-semibold ${
               config.customized
-                ? "bg-accent/10 text-accent"
+                ? "bg-accent-soft text-accent"
                 : "border border-hair-strong text-ink-mute"
             }`}
           >
-            {config.customized && <Sparkles size={12} />}
+            {config.customized && <Sparkles size={13} />}
             {config.customized ? "Team settings active" : "Using defaults"}
           </span>
         </div>
-        <p className="text-sm text-ink-mute">
-          Turn the dials so the score reflects what matters to <em>your</em> team. Higher weight = that
-          area counts more toward PR health. Saved to the server and applied to{" "}
-          <strong>new analyses</strong>; already-scored PRs keep their numbers until re-analyzed.
-        </p>
-        {topHealth && (
-          <p className="mt-3 text-[13px] text-ink-soft">
-            Right now your team treats{" "}
-            <span className="font-semibold text-ink">{WEIGHT_LABELS[topHealth] ?? topHealth}</span> as
-            the most important signal.
+      </div>
+
+      {/* ───── weights ───── */}
+      <SectionCard
+        index="01"
+        icon={<Scale size={16} />}
+        title="Weights — how much each area counts"
+        desc="Each signal contributes to the Health score in proportion to its weight. Weights are normalized to 100% on save, so only the relative sizes matter."
+        right={<TotalBadge label="Health" total={healthSum} />}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <Th3 a="Signal" b="What it measures" c="Health" />
+            </thead>
+            <tbody>
+              {signalKeys.map((key) => {
+                const meta = SIGNAL_META.find((m) => m.key === key);
+                return (
+                  <tr key={key} className="border-b border-hair transition last:border-0 hover:bg-surface-2">
+                    <td className="px-6 py-4 align-top">
+                      <div className="text-[14px] font-semibold text-ink">{meta?.label ?? prettify(key)}</div>
+                      <div className="mono mt-0.5 text-[11px] text-ink-mute">{key}</div>
+                    </td>
+                    <td className="max-w-[420px] px-4 py-4 align-top text-[13px] leading-snug text-ink-soft">
+                      {meta?.desc ?? "—"}
+                    </td>
+                    <td className="px-6 py-4 align-top text-right">
+                      <NumberField
+                        ariaLabel={`Health weight for ${meta?.label ?? key}`}
+                        value={healthW[key]}
+                        max={100}
+                        suffix="%"
+                        onChange={(v) => setHealthW((w) => ({ ...w, [key]: v }))}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-hair-strong bg-surface-2 text-[12px]">
+                <td className="px-6 py-3 font-semibold text-ink" colSpan={2}>
+                  Total
+                </td>
+                <td className="px-6 py-3 text-right">
+                  <TotalBadge total={healthSum} compact />
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {healthSum !== 100 && (
+          <p className="border-t border-hair px-6 py-3 text-[12px] text-ink-mute">
+            Weights don't add up to 100% — that's fine. We'll normalize on save and keep your
+            relative proportions.
           </p>
         )}
-      </div>
+      </SectionCard>
 
-      <WeightCard
-        title="Health weights — how much each area counts"
-        weights={healthW}
-        total={healthSum}
-        onChange={(k, v) => setHealthW((w) => ({ ...w, [k]: v }))}
-      />
+      {/* ───── thresholds ───── */}
+      <SectionCard
+        index="02"
+        icon={<Ruler size={16} />}
+        title="Thresholds — when a signal fires"
+        desc="The exact lines a PR has to cross before each issue is raised. Lower a cutoff to be stricter; raise it to be more forgiving."
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <Th3 a="Threshold" b="What it controls" c="Value" />
+            </thead>
+            <tbody>
+              {thresholdKeys.map((key) => {
+                const meta = THRESHOLD_META.find((m) => m.key === key);
+                return (
+                  <tr key={key} className="border-b border-hair transition last:border-0 hover:bg-surface-2">
+                    <td className="px-6 py-4 align-top">
+                      <div className="text-[14px] font-semibold text-ink">{meta?.label ?? prettify(key)}</div>
+                      <div className="mono mt-0.5 text-[11px] text-ink-mute">{key}</div>
+                    </td>
+                    <td className="max-w-[420px] px-4 py-4 align-top text-[13px] leading-snug text-ink-soft">
+                      {meta?.desc ?? "—"}
+                    </td>
+                    <td className="px-6 py-4 align-top text-right">
+                      <NumberField
+                        ariaLabel={meta?.label ?? key}
+                        value={thresholds[key]}
+                        suffix={meta?.unit}
+                        onChange={(v) => setThresholds((t) => ({ ...t, [key]: v }))}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
 
-      <div className="card p-6">
-        <div className="eyebrow mb-3">Thresholds — when a signal fires</div>
-        <div className="flex flex-col">
-          {Object.entries(thresholds).map(([key, value]) => (
-            <label
-              key={key}
-              className="flex items-center justify-between gap-4 border-b border-hair py-2.5 last:border-0"
-            >
-              <span className="text-sm text-ink">{THRESHOLD_LABELS[key] ?? key}</span>
-              <input
-                type="number"
-                min={0}
-                value={Number.isFinite(value) ? value : 0}
-                onChange={(e) => setThresholds((t) => ({ ...t, [key]: clampNum(e.target.value) }))}
-                className="w-24 rounded-lg border border-hair-strong bg-canvas px-2.5 py-1.5 text-right text-sm font-semibold text-ink outline-none focus:border-ink"
-              />
-            </label>
-          ))}
+      {/* ───── engine constants (reference) ───── */}
+      <SectionCard
+        index="03"
+        icon={<Lock size={16} />}
+        title="Engine constants — reference"
+        desc="The scoring model itself: how much each severity costs, and the merge gates. These are the same for every team, so the scores stay comparable across the org."
+        muted
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <Th3 a="Metric" b="What it means" c="Value" />
+            </thead>
+            <tbody>
+              {SEVERITY_ORDER.map((sev) => (
+                <tr key={sev} className="border-b border-hair last:border-0">
+                  <td className="px-6 py-3.5 align-top">
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ background: severityColor(sev as SeverityValue) }}
+                      />
+                      <span className="text-[14px] font-semibold capitalize text-ink">{sev} penalty</span>
+                    </span>
+                  </td>
+                  <td className="max-w-[420px] px-4 py-3.5 align-top text-[13px] leading-snug text-ink-soft">
+                    {SEVERITY_DESC[sev] ?? "Points removed per issue at this severity."}
+                  </td>
+                  <td className="px-6 py-3.5 align-top text-right">
+                    <ReadonlyValue value={config.severity_penalties[sev]} suffix="pts" />
+                  </td>
+                </tr>
+              ))}
+              <tr className="border-b border-hair">
+                <td className="px-6 py-3.5 align-top text-[14px] font-semibold text-ink">
+                  Merge-ready bar
+                </td>
+                <td className="max-w-[420px] px-4 py-3.5 align-top text-[13px] leading-snug text-ink-soft">
+                  A PR is marked ready when merge readiness is at or above this and no hard blocker
+                  fired.
+                </td>
+                <td className="px-6 py-3.5 align-top text-right">
+                  <ReadonlyValue value={config.ready_threshold} />
+                </td>
+              </tr>
+              <tr>
+                <td className="px-6 py-3.5 align-top text-[14px] font-semibold text-ink">
+                  Blocked ceiling
+                </td>
+                <td className="max-w-[420px] px-4 py-3.5 align-top text-[13px] leading-snug text-ink-soft">
+                  When a hard blocker fires, merge readiness is capped at this no matter how good
+                  everything else looks.
+                </td>
+                <td className="px-6 py-3.5 align-top text-right">
+                  <ReadonlyValue value={config.blocked_cap} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
-
-      <div className="card p-6">
-        <div className="eyebrow mb-3">Gates (defaults — not editable yet)</div>
-        <div className="flex items-center justify-between border-b border-hair py-2.5">
-          <span className="text-sm text-ink">Ready threshold (merge_readiness ≥ this)</span>
-          <span className="mono text-sm font-semibold text-ink">{config.ready_threshold}</span>
-        </div>
-        <div className="flex items-center justify-between py-2.5">
-          <span className="text-sm text-ink">Blocked cap (ceiling when a blocker fires)</span>
-          <span className="mono text-sm font-semibold text-ink">{config.blocked_cap}</span>
-        </div>
-      </div>
+      </SectionCard>
 
       {error && (
         <div className="rounded-2xl border border-risk/30 bg-risk/5 px-4 py-3 text-[13px] text-risk">
@@ -217,82 +417,180 @@ function SettingsForm({ config }: { config: ScoringConfigOut }) {
         </div>
       )}
 
-      <div className="sticky bottom-4 flex items-center justify-end gap-2.5">
-        <button
-          onClick={onReset}
-          disabled={pending !== null}
-          className="inline-flex items-center gap-1.5 rounded-full border border-hair-strong bg-surface px-4 py-2 text-[13px] font-semibold text-ink transition hover:bg-canvas-deep disabled:opacity-50"
-        >
-          <RotateCcw size={14} /> Reset to defaults
-        </button>
-        <button
-          onClick={onSave}
-          disabled={pending !== null}
-          className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[13px] font-semibold text-surface transition hover:opacity-90 disabled:opacity-50"
-        >
-          {savedFlash ? <Check size={14} /> : <Save size={14} />}
-          {savedFlash ? "Saved" : pending === "save" ? "Saving…" : "Save preferences"}
-        </button>
+      {/* ───── sticky actions ───── */}
+      <div className="sticky bottom-4 z-10 mt-1">
+        <div className="card flex items-center justify-between gap-3 px-4 py-3 shadow-[var(--shadow-pop)]">
+          <span className="flex items-center gap-2 pl-1 text-[12.5px] text-ink-soft">
+            {savedFlash ? (
+              <>
+                <Check size={15} className="text-health" />
+                <span className="font-semibold text-health">Saved</span>
+              </>
+            ) : dirty ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-accent" />
+                <span>Unsaved changes</span>
+              </>
+            ) : (
+              <span className="text-ink-mute">All changes saved</span>
+            )}
+          </span>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={onReset}
+              disabled={pending !== null || !config.customized}
+              className="inline-flex items-center gap-1.5 rounded-full border border-hair-strong bg-surface px-4 py-2 text-[13px] font-semibold text-ink transition hover:bg-canvas-deep disabled:opacity-40"
+              title={config.customized ? "Forget the team override and use engine defaults" : "Already on defaults"}
+            >
+              <RotateCcw size={14} className={pending === "reset" ? "animate-spin" : ""} />
+              Reset to defaults
+            </button>
+            <button
+              onClick={onSave}
+              disabled={pending !== null || !dirty}
+              className="inline-flex items-center gap-1.5 rounded-full bg-ink px-5 py-2 text-[13px] font-semibold text-surface transition hover:opacity-90 disabled:opacity-40"
+            >
+              {pending === "save" ? (
+                <Save size={14} className="animate-pulse" />
+              ) : (
+                <Save size={14} />
+              )}
+              {pending === "save" ? "Saving…" : "Save preferences"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function WeightCard({
+/* ───────────────────────── presentational pieces ───────────────────────── */
+
+function SectionCard({
+  index,
+  icon,
   title,
-  weights,
-  total,
-  onChange,
+  desc,
+  right,
+  muted = false,
+  children,
 }: {
+  index: string;
+  icon: React.ReactNode;
   title: string;
-  weights: Record<string, number>;
-  total: number;
-  onChange: (key: string, value: number) => void;
+  desc: string;
+  right?: React.ReactNode;
+  muted?: boolean;
+  children: React.ReactNode;
 }) {
+  return (
+    <section className="card overflow-hidden">
+      <div className="flex flex-col gap-3 border-b border-hair px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
+              muted ? "bg-canvas-deep text-ink-mute" : "bg-accent-soft text-accent"
+            }`}
+          >
+            {icon}
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="display text-[18px] text-ink-mute tnum">{index}</span>
+              <h2 className="text-[15px] font-bold tracking-tight text-ink">{title}</h2>
+            </div>
+            <p className="mt-1 max-w-2xl text-[12.5px] leading-snug text-ink-soft">{desc}</p>
+          </div>
+        </div>
+        {right && <div className="shrink-0 sm:pt-1">{right}</div>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Th3({ a, b, c }: { a: string; b: string; c: string }) {
+  return (
+    <tr className="border-b border-hair text-[10.5px] font-semibold uppercase tracking-[0.13em] text-ink-mute">
+      <th className="px-6 py-3 text-left">{a}</th>
+      <th className="px-4 py-3 text-left">{b}</th>
+      <th className="px-6 py-3 text-right">{c}</th>
+    </tr>
+  );
+}
+
+function NumberField({
+  value,
+  onChange,
+  suffix,
+  min = 0,
+  max,
+  ariaLabel,
+}: {
+  value: number | undefined;
+  onChange: (v: number) => void;
+  suffix?: string;
+  min?: number;
+  max?: number;
+  ariaLabel?: string;
+}) {
+  return (
+    <span className="inline-flex items-center justify-end gap-1.5">
+      <input
+        type="number"
+        inputMode="numeric"
+        aria-label={ariaLabel}
+        min={min}
+        max={max}
+        value={Number.isFinite(value) ? Math.round(value as number) : 0}
+        onChange={(e) => onChange(clampNum(e.target.value, min, max ?? Number.MAX_SAFE_INTEGER))}
+        className="tnum w-[74px] rounded-lg border border-hair-strong bg-canvas px-2.5 py-1.5 text-right text-[13px] font-semibold text-ink outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/10"
+      />
+      {suffix && <span className="w-[42px] text-left text-[12px] text-ink-mute">{suffix}</span>}
+    </span>
+  );
+}
+
+function ReadonlyValue({ value, suffix }: { value: number; suffix?: string }) {
+  return (
+    <span className="mono inline-flex items-center justify-end gap-1.5">
+      <span className="rounded-lg bg-canvas-deep px-2.5 py-1.5 text-[13px] font-semibold text-ink tnum">
+        {Number.isFinite(value) ? value : "—"}
+      </span>
+      {suffix && <span className="w-[42px] text-left text-[12px] text-ink-mute">{suffix}</span>}
+    </span>
+  );
+}
+
+function TotalBadge({ total, label, compact = false }: { total: number; label?: string; compact?: boolean }) {
   const off = total !== 100;
   return (
-    <div className="card p-6">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="eyebrow">{title}</div>
-        <span
-          className={`mono text-[12px] font-semibold ${off ? "text-risk" : "text-health"}`}
-          title="Weights are normalized to 100% on save"
-        >
-          total {total}%
-        </span>
-      </div>
-      <div className="flex flex-col">
-        {Object.entries(weights).map(([key, value]) => (
-          <label
-            key={key}
-            className="flex items-center justify-between gap-4 border-b border-hair py-2.5 last:border-0"
-          >
-            <span className="text-sm text-ink">{WEIGHT_LABELS[key] ?? key}</span>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={Math.round(value)}
-                onChange={(e) => onChange(key, clampNum(e.target.value, 0, 100))}
-                className="w-20 rounded-lg border border-hair-strong bg-canvas px-2.5 py-1.5 text-right text-sm font-semibold text-ink outline-none focus:border-ink"
-              />
-              <span className="text-sm text-ink-mute">%</span>
-            </div>
-          </label>
-        ))}
-      </div>
-      {off && (
-        <p className="mt-3 text-[12px] text-ink-mute">
-          Weights total {total}% — they'll be normalized to 100% when you save, keeping their
-          relative proportions.
-        </p>
-      )}
-    </div>
+    <span
+      className={`mono inline-flex items-center gap-1.5 rounded-full ${compact ? "px-2 py-0.5" : "px-2.5 py-1"} text-[11px] font-semibold ${
+        off ? "bg-risk-soft text-risk" : "bg-health-soft text-health"
+      }`}
+      title="Weights are normalized to 100% on save"
+    >
+      {label && <span className="font-sans uppercase tracking-wide opacity-70">{label}</span>}
+      {total}%
+    </span>
   );
 }
 
-// --- helpers ---------------------------------------------------------------
+/* ───────────────────────── helpers ───────────────────────── */
+
+/** Known keys first (in the given order), then any extras present in the data. */
+function orderedKeys(known: string[], ...maps: Record<string, number>[]): string[] {
+  const all = new Set<string>();
+  for (const m of maps) for (const k of Object.keys(m)) all.add(k);
+  const ordered = known.filter((k) => all.has(k));
+  for (const k of all) if (!ordered.includes(k)) ordered.push(k);
+  return ordered;
+}
+
+function prettify(key: string): string {
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 /** fractions (0..1) -> percents (0..100) for editing */
 function toPercent(fracs: Record<string, number>): Record<string, number> {
@@ -313,6 +611,18 @@ function normalize(percents: Record<string, number>): Record<string, number> {
   }
   for (const k of ks) out[k] = percents[k] / total;
   return out;
+}
+
+function weightsEqual(a: Record<string, number>, b: Record<string, number>): boolean {
+  const ks = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of ks) if (Math.round(a[k] ?? 0) !== Math.round(b[k] ?? 0)) return false;
+  return true;
+}
+
+function thresholdsEqual(a: Record<string, number>, b: Record<string, number>): boolean {
+  const ks = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of ks) if ((a[k] ?? NaN) !== (b[k] ?? NaN)) return false;
+  return true;
 }
 
 function clampNum(raw: string, min = 0, max = Number.MAX_SAFE_INTEGER): number {
